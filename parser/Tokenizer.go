@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"Go-Database/parser/token"
 	"strings"
 	"unicode"
 )
@@ -9,7 +10,7 @@ type Tokenizer struct {
 	currentPosition int
 	Sql_str         string
 	Sql_len         int
-	Tokens          []Token
+	Tokens          []token.Token
 	CurrentTokenPos int
 }
 
@@ -18,19 +19,19 @@ func NewTokenizer(content string) Tokenizer {
 		0,
 		content,
 		len(content),
-		make([]Token, 0),
+		make([]token.Token, 0),
 		0,
 	}
 	tokenizer.getAllTokens()
 	return tokenizer
 }
 
-func (tokenizer *Tokenizer) scanNextToken() (currentToken Token) {
+func (tokenizer *Tokenizer) scanNextToken() (currentToken token.Token) {
 	for tokenizer.currentPosition < tokenizer.Sql_len && tokenizer.isSpace(tokenizer.Sql_str[tokenizer.currentPosition]) {
 		tokenizer.currentPosition++
 	}
 	if tokenizer.currentPosition >= tokenizer.Sql_len {
-		currentToken = Token{Types: END, Value: ""}
+		currentToken = token.Token{Types: token.END, Value: ""}
 	} else if tokenizer.Sql_str[tokenizer.currentPosition] == '"' || tokenizer.Sql_str[tokenizer.currentPosition] == '\'' {
 		currentToken = tokenizer.getString()
 	} else if unicode.IsDigit(rune(tokenizer.Sql_str[tokenizer.currentPosition])) {
@@ -43,7 +44,7 @@ func (tokenizer *Tokenizer) scanNextToken() (currentToken Token) {
 	return currentToken
 }
 
-func (tokenizer *Tokenizer) getString() Token {
+func (tokenizer *Tokenizer) getString() token.Token {
 	quotation := tokenizer.Sql_str[tokenizer.currentPosition]
 	var str string
 	tokenizer.currentPosition++
@@ -53,12 +54,12 @@ func (tokenizer *Tokenizer) getString() Token {
 	}
 	if tokenizer.currentPosition < tokenizer.Sql_len && tokenizer.Sql_str[tokenizer.currentPosition] == quotation {
 		tokenizer.currentPosition++
-		return Token{Types: STRING, Value: str}
+		return token.Token{Types: token.STRING, Value: str}
 	}
-	return Token{Types: ILLEGAL, Value: str}
+	return token.Token{Types: token.ILLEGAL, Value: str}
 }
 
-func (tokenizer *Tokenizer) getNumber() Token {
+func (tokenizer *Tokenizer) getNumber() token.Token {
 	var number string
 	dot := 0
 	currentChar := tokenizer.Sql_str[tokenizer.currentPosition]
@@ -74,18 +75,18 @@ func (tokenizer *Tokenizer) getNumber() Token {
 		currentChar = tokenizer.Sql_str[tokenizer.currentPosition]
 	}
 	if dot == 0 {
-		return Token{Types: INT, Value: number}
+		return token.Token{Types: token.INT, Value: number}
 	} else if dot == 1 {
 		if number == "." {
-			return Token{Types: DOT, Value: number}
+			return token.Token{Types: token.DOT, Value: number}
 		}
-		return Token{Types: FLOAT, Value: number}
+		return token.Token{Types: token.FLOAT, Value: number}
 	} else {
-		return Token{Types: ILLEGAL, Value: number}
+		return token.Token{Types: token.ILLEGAL, Value: number}
 	}
 }
 
-func (tokenizer *Tokenizer) getWords() Token {
+func (tokenizer *Tokenizer) getWords() token.Token {
 	var str string
 	illegalCharNum := 0
 	for tokenizer.currentPosition < tokenizer.Sql_len &&
@@ -101,105 +102,105 @@ func (tokenizer *Tokenizer) getWords() Token {
 		tokenizer.currentPosition++
 	}
 	if illegalCharNum != 0 {
-		return Token{Types: ILLEGAL, Value: str}
+		return token.Token{Types: token.ILLEGAL, Value: str}
 	}
 	str = strings.ToLower(str)
 	if str == "add" {
-		return Token{Types: ADD, Value: str}
+		return token.Token{Types: token.ADD, Value: str}
 	} else if str == "alter" {
-		return Token{Types: ALTER, Value: str}
+		return token.Token{Types: token.ALTER, Value: str}
 	} else if str == "all" {
-		return Token{Types: ALL, Value: str}
+		return token.Token{Types: token.ALL, Value: str}
 	} else if str == "and" {
-		return Token{Types: AND, Value: str}
+		return token.Token{Types: token.AND, Value: str}
 	} else if str == "any" {
-		return Token{Types: ANY, Value: str}
+		return token.Token{Types: token.ANY, Value: str}
 	} else if str == "as" {
-		return Token{Types: AS, Value: str}
+		return token.Token{Types: token.AS, Value: str}
 	} else if str == "asc" {
-		return Token{Types: ASC, Value: str}
+		return token.Token{Types: token.ASC, Value: str}
 	} else if str == "avg" {
-		return Token{Types: AVG, Value: str}
+		return token.Token{Types: token.AVG, Value: str}
 	} else if str == "by" {
-		return Token{Types: BY, Value: str}
+		return token.Token{Types: token.BY, Value: str}
 	} else if str == "check" {
-		return Token{Types: CHECK, Value: str}
+		return token.Token{Types: token.CHECK, Value: str}
 	} else if str == "column" {
-		return Token{Types: COLUMN, Value: str}
+		return token.Token{Types: token.COLUMN, Value: str}
 	} else if str == "count" {
-		return Token{Types: COUNT, Value: str}
+		return token.Token{Types: token.COUNT, Value: str}
 	} else if str == "create" {
-		return Token{Types: CREATE, Value: str}
+		return token.Token{Types: token.CREATE, Value: str}
 	} else if str == "delete" {
-		return Token{Types: DELETE, Value: str}
+		return token.Token{Types: token.DELETE, Value: str}
 	} else if str == "desc" {
-		return Token{Types: DESC, Value: str}
+		return token.Token{Types: token.DESC, Value: str}
 	} else if str == "drop" {
-		return Token{Types: DROP, Value: str}
+		return token.Token{Types: token.DROP, Value: str}
 	} else if str == "distinct" {
-		return Token{Types: DISTINCT, Value: str}
+		return token.Token{Types: token.DISTINCT, Value: str}
 	} else if str == "except" {
-		return Token{Types: EXCEPT, Value: str}
+		return token.Token{Types: token.EXCEPT, Value: str}
 	} else if str == "foreign" {
-		return Token{Types: FOREIGN, Value: str}
+		return token.Token{Types: token.FOREIGN, Value: str}
 	} else if str == "from" {
-		return Token{Types: FROM, Value: str}
+		return token.Token{Types: token.FROM, Value: str}
 	} else if str == "group" {
-		return Token{Types: GROUP, Value: str}
+		return token.Token{Types: token.GROUP, Value: str}
 	} else if str == "having" {
-		return Token{Types: HAVING, Value: str}
+		return token.Token{Types: token.HAVING, Value: str}
 	} else if str == "in" {
-		return Token{Types: IN, Value: str}
+		return token.Token{Types: token.IN, Value: str}
 	} else if str == "index" {
-		return Token{Types: INDEX, Value: str}
+		return token.Token{Types: token.INDEX, Value: str}
 	} else if str == "is" {
-		return Token{Types: IS, Value: str}
+		return token.Token{Types: token.IS, Value: str}
 	} else if str == "insert" {
-		return Token{Types: INSERT, Value: str}
+		return token.Token{Types: token.INSERT, Value: str}
 	} else if str == "into" {
-		return Token{Types: INTO, Value: str}
+		return token.Token{Types: token.INTO, Value: str}
 	} else if str == "join" {
-		return Token{Types: JOIN, Value: str}
+		return token.Token{Types: token.JOIN, Value: str}
 	} else if str == "key" {
-		return Token{Types: KEY, Value: str}
+		return token.Token{Types: token.KEY, Value: str}
 	} else if str == "like" {
-		return Token{Types: LIKE, Value: str}
+		return token.Token{Types: token.LIKE, Value: str}
 	} else if str == "min" {
-		return Token{Types: MIN, Value: str}
+		return token.Token{Types: token.MIN, Value: str}
 	} else if str == "max" {
-		return Token{Types: MAX, Value: str}
+		return token.Token{Types: token.MAX, Value: str}
 	} else if str == "not" {
-		return Token{Types: NOT, Value: str}
+		return token.Token{Types: token.NOT, Value: str}
 	} else if str == "null" {
-		return Token{Types: NUL, Value: str}
+		return token.Token{Types: token.NUL, Value: str}
 	} else if str == "||" {
-		return Token{Types: OR, Value: str}
+		return token.Token{Types: token.OR, Value: str}
 	} else if str == "order" {
-		return Token{Types: ORDER, Value: str}
+		return token.Token{Types: token.ORDER, Value: str}
 	} else if str == "primary" {
-		return Token{Types: PRIMARY, Value: str}
+		return token.Token{Types: token.PRIMARY, Value: str}
 	} else if str == "table" {
-		return Token{Types: TABLE, Value: str}
+		return token.Token{Types: token.TABLE, Value: str}
 	} else if str == "select" {
-		return Token{Types: SELECT, Value: str}
+		return token.Token{Types: token.SELECT, Value: str}
 	} else if str == "set" {
-		return Token{Types: SET, Value: str}
+		return token.Token{Types: token.SET, Value: str}
 	} else if str == "sum" {
-		return Token{Types: SUM, Value: str}
+		return token.Token{Types: token.SUM, Value: str}
 	} else if str == "update" {
-		return Token{Types: UPDATE, Value: str}
+		return token.Token{Types: token.UPDATE, Value: str}
 	} else if str == "union" {
-		return Token{Types: UNION, Value: str}
+		return token.Token{Types: token.UNION, Value: str}
 	} else if str == "values" {
-		return Token{Types: VALUES, Value: str}
+		return token.Token{Types: token.VALUES, Value: str}
 	} else if str == "where" {
-		return Token{Types: WHERE, Value: str}
+		return token.Token{Types: token.WHERE, Value: str}
 	} else {
-		return Token{Types: ID, Value: str}
+		return token.Token{Types: token.ID, Value: str}
 	}
 }
 
-func (tokenizer *Tokenizer) getPunct() Token {
+func (tokenizer *Tokenizer) getPunct() token.Token {
 	var str string
 	for unicode.IsPunct(rune(tokenizer.Sql_str[tokenizer.currentPosition])) && tokenizer.currentPosition < tokenizer.Sql_len {
 		str += string(tokenizer.Sql_str[tokenizer.currentPosition])
@@ -211,39 +212,39 @@ func (tokenizer *Tokenizer) getPunct() Token {
 		}
 	}
 	if str == "+" {
-		return Token{Types: PLUS, Value: str}
+		return token.Token{Types: token.PLUS, Value: str}
 	} else if str == "-" {
-		return Token{Types: MINUS, Value: str}
+		return token.Token{Types: token.MINUS, Value: str}
 	} else if str == "*" {
-		return Token{Types: ASTERISK, Value: str}
+		return token.Token{Types: token.ASTERISK, Value: str}
 	} else if str == "/" {
-		return Token{Types: DIVISION, Value: str}
+		return token.Token{Types: token.DIVISION, Value: str}
 	} else if str == ";" {
-		return Token{Types: SEMICOLON, Value: str}
+		return token.Token{Types: token.SEMICOLON, Value: str}
 	} else if str == "," {
-		return Token{Types: COMMA, Value: str}
+		return token.Token{Types: token.COMMA, Value: str}
 	} else if str == ">" {
-		return Token{Types: GREATER_THAN, Value: str}
+		return token.Token{Types: token.GREATER_THAN, Value: str}
 	} else if str == "<" {
-		return Token{Types: LESS_THAN, Value: str}
+		return token.Token{Types: token.LESS_THAN, Value: str}
 	} else if str == "(" {
-		return Token{Types: L_BRACKET, Value: str}
+		return token.Token{Types: token.L_BRACKET, Value: str}
 	} else if str == ")" {
-		return Token{Types: R_BRACKET, Value: str}
+		return token.Token{Types: token.R_BRACKET, Value: str}
 	} else if str == "=" {
-		return Token{Types: EQUAL, Value: str}
+		return token.Token{Types: token.EQUAL, Value: str}
 	} else if str == ">=" {
-		return Token{Types: GREATER_EQUAL_TO, Value: str}
+		return token.Token{Types: token.GREATER_EQUAL_TO, Value: str}
 	} else if str == "<=" {
-		return Token{Types: LESS_EQUAL_TO, Value: str}
+		return token.Token{Types: token.LESS_EQUAL_TO, Value: str}
 	} else if str == "!=" {
-		return Token{Types: NOT_EQUAL, Value: str}
+		return token.Token{Types: token.NOT_EQUAL, Value: str}
 	} else if str == "<>" {
-		return Token{Types: NOT_EQUAL, Value: str}
+		return token.Token{Types: token.NOT_EQUAL, Value: str}
 	} else if str == "." {
-		return Token{Types: DOT, Value: str}
+		return token.Token{Types: token.DOT, Value: str}
 	} else {
-		return Token{Types: ILLEGAL, Value: str}
+		return token.Token{Types: token.ILLEGAL, Value: str}
 	}
 }
 
@@ -257,26 +258,26 @@ func (tokenizer *Tokenizer) isSpace(ch byte) bool {
 func (tokenizer *Tokenizer) getAllTokens() {
 	for {
 		tokenizer.Tokens = append(tokenizer.Tokens, tokenizer.scanNextToken())
-		if tokenizer.Tokens[len(tokenizer.Tokens)-1].Types == END {
+		if tokenizer.Tokens[len(tokenizer.Tokens)-1].Types == token.END {
 			break
 		}
 	}
 }
 
-func (tokenizer *Tokenizer) getNextToken() Token {
+func (tokenizer *Tokenizer) getNextToken() token.Token {
 	if tokenizer.CurrentTokenPos < len(tokenizer.Tokens) {
 		tokenizer.CurrentTokenPos++
 		return tokenizer.Tokens[tokenizer.CurrentTokenPos-1]
 	} else {
-		return Token{Types: END, Value: ""}
+		return token.Token{Types: token.END, Value: ""}
 	}
 }
 
-func (tokenizer *Tokenizer) getCurrentToken() Token {
+func (tokenizer *Tokenizer) getCurrentToken() token.Token {
 	if tokenizer.CurrentTokenPos < len(tokenizer.Tokens) {
 		return tokenizer.Tokens[tokenizer.CurrentTokenPos]
 	} else {
-		return Token{Types: END, Value: ""}
+		return token.Token{Types: token.END, Value: ""}
 	}
 }
 

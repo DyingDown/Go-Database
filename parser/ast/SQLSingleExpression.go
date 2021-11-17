@@ -1,9 +1,9 @@
 package ast
 
-import "Go-Database/parser"
+import "Go-Database/parser/token"
 
 type SQLSingleExpression struct {
 	LeftVal   SQLValue
-	CompareOp parser.TokenType
+	CompareOp token.TokenType
 	RightVal  SQLValue
 }

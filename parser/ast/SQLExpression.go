@@ -1,8 +1,8 @@
 package ast
 
-import "Go-Database/parser"
+import "Go-Database/parser/token"
 
 type SQLExpression struct {
 	Exprs []SQLSingleExpression
-	Ops   []parser.TokenType
+	Ops   []token.TokenType
 }

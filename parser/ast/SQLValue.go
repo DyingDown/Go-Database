@@ -1,7 +1,7 @@
 package ast
 
 import (
-	"Go-Database/parser"
+	"Go-Database/parser/token"
 	"strconv"
 )
 
@@ -20,14 +20,14 @@ type SQLValue struct {
 	ValueType SQLType
 }
 
-func NewSQLValue(val parser.Token) SQLValue {
-	if val.Types == parser.INT {
+func NewSQLValue(val token.Token) SQLValue {
+	if val.Types == token.INT {
 		return SQLValue{val.Value, INT}
-	} else if val.Types == parser.FLOAT {
+	} else if val.Types == token.FLOAT {
 		return SQLValue{val.Value, FLOAT}
-	} else if val.Types == parser.STRING {
+	} else if val.Types == token.STRING {
 		return SQLValue{val.Value, STRING}
-	} else if val.Types == parser.ID {
+	} else if val.Types == token.ID {
 		return SQLValue{val.Value, COLUMN}
 	} else {
 		return SQLValue{val.Value, ILLEGAL}

@@ -11,8 +11,8 @@ const (
 var StringToType = map[string]Types{"int": CT_INT, "float": CT_FLOAT, "string": CT_STRING}
 
 type SQLColumnDefine struct {
-	columnName string
-	columnType Types
+	ColumnName string
+	ColumnType Types
 	len        int
 }
 
