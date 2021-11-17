@@ -1,5 +1,9 @@
 package bplustree
 
+import (
+	"sort"
+)
+
 const degree = 255
 
 type BPlusTreeNode struct {
@@ -16,7 +20,6 @@ type BPlusTreeNode struct {
 func NewBPlusTreeNode(current int, leaf bool) BPlusTreeNode {
 	node := BPlusTreeNode{
 		isLeaf:      leaf,
-		CurrentAddr: current,
 	}
 	return node
 }
@@ -25,6 +28,17 @@ func (node *BPlusTreeNode) SearchNonLeaf(target int) int {
 	pos := Lower_Bound(target, node.Keys, 0, node.num)
 	return node.Children[pos]
 }
+
+
+// // find target data address
+// func (node *BPlusTreeNode) SearchLeaf(target int) (pos int, flag bool) {
+// 	pos = Lower_Bound(target, node.Keys, 0, node.num)
+// 	if node.keys[pos] == target {
+// 		flag = true
+// 	} else {
+// 		flag = false
+// 	}
+// }
 
 func Lower_Bound(target int, keys [degree]int, left int, right int) int {
 	for left < right {
