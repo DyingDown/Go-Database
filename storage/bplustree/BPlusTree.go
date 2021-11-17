@@ -14,8 +14,9 @@ func (bplustree *BPlusTree) search(target int, pager pager.Pager) {
 		nextAddr := bplustree.currentNode.SearchNonLeaf(target)
 		pager.LoadNode(nextAddr)
 	}
+	
 	// search in leaf node
 	if bplustree.currentNode.SearchNonLeaf(target) {
-
+		
 	}
 }

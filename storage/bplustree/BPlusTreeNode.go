@@ -23,9 +23,7 @@ func NewBPlusTreeNode(current int, leaf bool) BPlusTreeNode {
 
 func (node *BPlusTreeNode) SearchNonLeaf(target int) int {
 	pos := Lower_Bound(target, node.Keys, 0, node.num)
-	if pos == node.num-1 {
-
-	}
+	return node.Children[pos]
 }
 
 func Lower_Bound(target int, keys [degree]int, left int, right int) int {
