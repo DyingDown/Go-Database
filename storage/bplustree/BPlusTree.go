@@ -17,29 +17,42 @@ func (bplustree *BPlusTree) search(target int, pager pager.Pager) (targetPos int
 	}
 	// search in leaf node
 	// dataAddr, isFind := bplustree.currentNode.SearchLeaf(target)
-	targetPos = Lower_Bound(target, node.Keys, 0, node.num)
-	if bplustree.currentNode.keys[pos] == target {
-		flag = true
+	targetPos = Lower_Bound(target, bplustree.currentNode.Keys, 0, bplustree.currentNode.num)
+	if bplustree.currentNode.Keys[targetPos] == target {
+		isFind = true
 	} else {
 		fmt.Println("Dose not exist")
-		flag = false
+		isFind = false
 	}
 }
 
-func (bplustree *bplustree) insert(target int, pager pager.Pager) {
+func (bplustree *BPlusTree) insert(target int, pager pager.Pager) {
 	findAddr, isFind := bplustree.search(target, pager)
 	if isFind == false {
-		bplustree.currentNode.Keys = append(bplustree.currentNode.Keys[:findAddr], append([]int{target}, bplustree.currentNode.Keys[findAddr:]...)...)
-		bplustree.currentNode.num ++
-		for bplustree.currentNode.num == degree {
-			newLeftKeys = 
+		bplustree.currentNode.Keys[bplustree.currentNode.num] = target
+		bplustree.currentNode.num++
+		for bplustree.currentNode.num == order {
+			newNode, newAddr := bplustree.splitNode(pager)
+			newNode.parent = bplustree.currentNode.parent
+			bplustree.currentNode = pager.LoadNode(bplustree.currentNode.parent)
+			target = newNode.Keys[0]
+
 		}
 	} else {
 		fmt.Println("Already exists")
 	}
 }
 
-func (bplustree *BPlusTree) splitNode() (newNode BPlusTreeNode, newNodeAddr int){
+func (bplustree *BPlusTree) splitNode(pager pager.Pager) (newNode BPlusTreeNode, newNodeAddr int) {
 	newNode = bplustree.currentNode
-	newNode.Keys = keys[]
+	half := order / 2
+	for i := half; i < order; i++ {
+		newNode.Keys[i-half] = bplustree.currentNode.Keys[i]
+		bplustree.currentNode.Keys[i] = 0
+
+	}
+	for i := order - half - 1; i < order; i++ {
+		newNode.Keys[i] = 0
+	}
+	return newNode, pager.NewNode()
 }
