@@ -25,15 +25,17 @@ func (node *BPlusTreeNode) SearchNonLeaf(target int) int {
 	return node.Children[pos]
 }
 
-// // find target data address
-// func (node *BPlusTreeNode) SearchLeaf(target int) (pos int, flag bool) {
-// 	pos = Lower_Bound(target, node.Keys, 0, node.num)
-// 	if node.keys[pos] == target {
-// 		flag = true
-// 	} else {
-// 		flag = false
-// 	}
-// }
+func (node *BPlusTreeNode) Insert(target int, childAddr int) {
+	pos := Lower_Bound(target, node.Keys, 0, node.num)
+	for i := node.num - 1; i > pos; i-- {
+		node.Keys[i] = node.Keys[i-1]
+		if i-pos > 1 {
+			node.Children[i] = node.Children[i-1]
+		}
+	}
+	node.Keys[pos] = target
+	node.Children[pos+1] = childAddr
+}
 
 func Lower_Bound(target int, keys [order]int, left int, right int) int {
 	for left < right {
