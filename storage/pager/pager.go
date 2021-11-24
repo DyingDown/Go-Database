@@ -1,10 +1,16 @@
 package pager
 
+import (
+	"Go-Database/storage/cache"
+)
+
 type Pager struct {
 }
 
-func (pager *Pager) LoadNode(addr int) (a interface{}) {
+var cache_ cache.Cache
 
+func (pager *Pager) LoadNode(addr int) (a interface{}) {
+	cache_.getPage()
 }
 
 func (pager *Pager) NewNode(a interface{}) (addr int) {
