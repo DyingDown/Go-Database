@@ -1,8 +1,8 @@
 package main
 
 import (
-	"Go-Database/parser"
 	"fmt"
+	"go-database/parser"
 )
 
 func main() {

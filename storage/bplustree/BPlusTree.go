@@ -1,8 +1,8 @@
 package bplustree
 
 import (
-	"Go-Database/storage/pager"
 	"fmt"
+	"go-database/storage/pager"
 )
 
 type BPlusTree struct {
@@ -114,13 +114,4 @@ func (bplustree *BPlusTree) splitNoneLeaf(pager pager.Pager, node *BPlusTreeNode
 
 	parentNode.Insert(targetVal, newNode.CurrentAddr)
 	return parentNode
-}
-
-func (bplustree *BPlusTree) delete(target int, pager pager.Pager) {
-	_, node := bplustree.search(target, pager)
-	if node != nil {
-
-	} else {
-		fmt.Println("Data not exist")
-	}
 }

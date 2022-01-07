@@ -1,7 +1,7 @@
 package ast
 
 import (
-	"Go-Database/parser/token"
+	"go-database/parser/token"
 	"strconv"
 )
 
@@ -47,3 +47,5 @@ func (sqlvalue *SQLValue) getFloat() float64 {
 func (sqlvalue *SQLValue) getString() string {
 	return sqlvalue.Value
 }
+
+type Row []SQLValue

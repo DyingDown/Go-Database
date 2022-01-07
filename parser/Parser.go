@@ -1,8 +1,8 @@
 package parser
 
 import (
-	"Go-Database/parser/ast"
-	"Go-Database/parser/token"
+	"go-database/parser/ast"
+	"go-database/parser/token"
 )
 
 type Parser struct {

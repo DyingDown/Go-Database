@@ -1,6 +1,6 @@
 package ast
 
-import "Go-Database/parser/token"
+import "go-database/parser/token"
 
 type SQLSingleExpression struct {
 	LeftVal   SQLValue

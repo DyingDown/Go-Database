@@ -1,7 +1,7 @@
 package parser
 
 import (
-	"Go-Database/parser/token"
+	"go-database/parser/token"
 	"strings"
 	"unicode"
 )
