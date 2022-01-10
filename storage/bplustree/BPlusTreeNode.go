@@ -1,16 +1,18 @@
 package bplustree
 
-const order = 255
+import (
+	"go-database/storage/index"
+)
 
 type BPlusTreeNode struct {
-	Keys        [order]int
-	Children    [order + 1]int
-	parent      int
-	LeftAddr    int
-	RightAddr   int
+	CurrentAddr uint32
+	parent      uint32
+	LeftAddr    uint32
+	RightAddr   uint32
 	isLeaf      bool
-	CurrentAddr int
-	num         int
+	order       uint
+	Keys        []index.ValueType
+	Children    []index.ValueType
 }
 
 func NewBPlusTreeNode(current int, leaf bool) BPlusTreeNode {
