@@ -17,6 +17,7 @@ type BPlusTreeNode struct {
 	Num         uint16
 	Keys        []index.KeyType
 	Children    []index.ValueType
+	tree        *BPlusTree
 }
 
 func NewBPlusTreeNode(order uint16, leaf bool) *BPlusTreeNode {
@@ -28,7 +29,7 @@ func NewBPlusTreeNode(order uint16, leaf bool) *BPlusTreeNode {
 	}
 }
 
-func (node *BPlusTreeNode) SearchNonLeaf(target []byte) index.ValueType {
+func (node *BPlusTreeNode) SearchNonLeaf(target index.KeyType) index.ValueType {
 	pos := Lower_Bound(target, node.Keys, 0, node.Num)
 	return node.Children[pos]
 }
@@ -130,13 +131,13 @@ func (node *BPlusTreeNode) Decode(r io.Reader) error {
 		node.Children = make([]index.ValueType, node.tree.order+1)
 	}
 	for i := 0; i < int(node.Num); i++ {
-		node.Keys[i] = make(index.KeyType, node.tree.KeySize())
+		node.Keys[i] = make(index.KeyType, node.tree.KeySize)
 		r.Read(node.Keys[i][:])
-		node.Children[i] = make(index.ValueType, node.tree.ValueSize())
+		node.Children[i] = make(index.ValueType, node.tree.ValueSize)
 		r.Read(node.Children[i][:])
 	}
 	for node.isLeaf {
-		node.Children[node.Num] = make(index.ValueType, node.tree.ValueSize())
+		node.Children[node.Num] = make(index.ValueType, node.tree.ValueSize)
 		r.Read(node.Children[node.Num][:])
 	}
 	return nil

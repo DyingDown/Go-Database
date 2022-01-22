@@ -1,32 +1,114 @@
 package bplustree
 
 import (
+	"bytes"
 	"fmt"
+	"go-database/storage/index"
 	"go-database/storage/pager"
+	"go-database/util"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type BPlusTree struct {
-	Root *BPlusTreeNode
+	Root      uint32
+	FirstLeaf uint32
+	LastLeaf  uint32
+	KeySize   uint8
+	ValueSize uint8
+	order     uint16
+	pager     *pager.Pager
 }
 
-func (bplustree *BPlusTree) search(target int, pager pager.Pager) (int, *BPlusTreeNode) {
+func NewBPlusTree(pager *pager.Pager, keySize uint8, valueSize uint8) *BPlusTree {
+	order := uint16(util.PageSize-16) / (uint16(keySize + valueSize))
+	rootNode := NewBPlusTreeNode(order, true)
+	rootPage := pager.CreatePage(rootNode)
+	rootNode.CurrentAddr = rootPage.PageNo
+	rootNode.parent = 0
+	rootNode.LeftAddr = 0
+	rootNode.RightAddr = 0
+	rootNode.Num = 0
+	rootNode.Keys = make([]index.KeyType, order)
+	rootNode.Children = make([]index.ValueType, order+1)
+	return &BPlusTree{
+		Root:      rootNode.CurrentAddr,
+		pager:     pager,
+		FirstLeaf: rootNode.CurrentAddr,
+		LastLeaf:  rootNode.CurrentAddr,
+		KeySize:   keySize,
+		ValueSize: valueSize,
+		order:     order,
+	}
+}
+
+func (bplustree *BPlusTree) getNode(pageNum uint32) (*BPlusTreeNode, error) {
+	node := &BPlusTreeNode{
+		tree: bplustree,
+	}
+	_, err := bplustree.pager.GetPage(pageNum, node)
+	return node, err
+}
+
+func (bplustree *BPlusTree) Search(target index.KeyType) <-chan index.ValueType {
+	ValueChan := make(chan index.ValueType, 100)
+	node, err := bplustree.getNode(bplustree.Root)
+	if err != nil {
+		log.Errorf("fail to load tree node: %v", err)
+		close(ValueChan)
+		return ValueChan
+	}
+
 	// reach leaf node
-	node := pager.LoadNode(bplustree.Root)
 	for node.isLeaf == false {
 		nextAddr := node.SearchNonLeaf(target)
-		node = pager.LoadNode(nextAddr)
+		node, err = bplustree.getNode(util.BytesToUInt32(nextAddr))
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
+
 	// search in leaf node
-	targetPos := Lower_Bound(target, node.Keys, 0, node.num)
-	if node.Keys[targetPos] == target {
+	targetPos := Lower_Bound(target, node.Keys, 0, node.Num)
+
+	// verify targetPos
+	if targetPos == node.Num || bytes.Compare(node.Keys[targetPos], target) != 0 {
 		node = nil
-	} else {
-		fmt.Println("Dose not exist")
+		close(ValueChan)
 	}
-	return targetPos, node
+	nodePageNo := util.BytesToUInt32(node.Children[targetPos])
+	if nodePageNo == 0 {
+		close(ValueChan)
+		return ValueChan
+	}
+
+	// put data into ValueChan
+	go func() {
+		defer close(ValueChan)
+		for {
+			// search next child
+			for targetPos < node.Num && bytes.Compare(node.Keys[targetPos], target) == 0 {
+				ValueChan <- node.Children[targetPos]
+				targetPos++
+			}
+			// search next node
+			if targetPos == node.Num {
+				if node.RightAddr == 0 {
+					break
+				}
+				node, err = bplustree.getNode(node.RightAddr)
+				if err != nil {
+					log.Fatal(err)
+				}
+			} else {
+				break
+			}
+		}
+	}()
+	return ValueChan
 }
 
-func (bplustree *BPlusTree) insert(target int, pager pager.Pager) {
+func (bplustree *BPlusTree) Insert(target int, pager pager.Pager) {
 	findAddr, node := bplustree.search(target, pager)
 	if node != nil {
 		// insert

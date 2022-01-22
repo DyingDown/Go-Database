@@ -74,8 +74,9 @@ func (pager *Pager) CreatePage(data PageData) *Page {
 	}
 	fileSize := fileInfo.Size()
 	newPageNo := uint32(fileSize / util.PageSize)
-
-	return NewPage(newPageNo, data)
+	page := NewPage(newPageNo, data)
+	pager.WritePage(page)
+	return page
 }
 
 func (pager *Pager) SelectPage(dataSize int, tableName string) (page *Page, err error) {
@@ -105,7 +106,7 @@ func (pager *Pager) SelectPage(dataSize int, tableName string) (page *Page, err 
 // flush page to disk
 func (pager *Pager) WritePage(page *Page) {
 	bytes := page.Encode()
-	n, err := pager.file.WriteAt(bytes, int64(page.pageNo*util.PageSize))
+	n, err := pager.file.WriteAt(bytes, int64(page.PageNo*util.PageSize))
 	if err != nil || n != util.PageSize {
 		panic("fail to write page to disk")
 	}

@@ -33,7 +33,7 @@ type PageData interface {
 
 type Page struct {
 	pageType   PageType
-	pageNo     uint32 // page number
+	PageNo     uint32 // page number
 	prevPageNo uint32
 	nextPageNo uint32
 	dirty      bool
@@ -43,7 +43,7 @@ type Page struct {
 func NewPage(pageNo uint32, data PageData) *Page {
 	return &Page{
 		pageType: ptype,
-		pageNo:   pageNo,
+		PageNo:   pageNo,
 		dirty:    false,
 		pageData: data,
 	}
