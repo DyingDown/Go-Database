@@ -11,3 +11,7 @@ func BytesToUInt32(num []byte) uint32 {
 	}
 	return uint32(num[0]) | uint32(num[1])<<8 | uint32(num[2])<<16 | uint32(num[3])<<24
 }
+
+func Uint32ToBytes(num uint32) []byte {
+	return []byte{byte(num), byte(num >> 8), byte(num >> 16), byte(num >> 24)}
+}

@@ -76,7 +76,7 @@ func (bplustree *BPlusTree) Search(target index.KeyType) <-chan index.ValueType 
 	node, targetPos := bplustree.searchLowerInTree(target)
 
 	// verify targetPos
-	if node == nil || targetPos == node.Num || bytes.Compare(node.Keys[targetPos], target) != 0 {
+	if node == nil || targetPos == node.Num || !bytes.Equal(node.Keys[targetPos], target) {
 		node = nil
 		close(ValueChan)
 	}
@@ -91,7 +91,7 @@ func (bplustree *BPlusTree) Search(target index.KeyType) <-chan index.ValueType 
 		defer close(ValueChan)
 		for {
 			// search next child
-			for targetPos < node.Num && bytes.Compare(node.Keys[targetPos], target) == 0 {
+			for targetPos < node.Num && bytes.Equal(node.Keys[targetPos], target) {
 				ValueChan <- node.Children[targetPos]
 				targetPos++
 			}
@@ -112,93 +112,148 @@ func (bplustree *BPlusTree) Search(target index.KeyType) <-chan index.ValueType 
 	return ValueChan
 }
 
-func (bplustree *BPlusTree) Insert(key index.KeyType, value index.ValueType) {
-	valueChan := bplustree.Search(key)
+func (tree *BPlusTree) insertInNode(key index.KeyType, value index.ValueType, node *BPlusTreeNode, index uint16) bool {
+	// insert key
+	copy(node.Keys[index+1:], node.Keys[index:node.order-1])
+	node.Keys[index] = key
 
-	// if node != nil {
-	// 	// insert
-	// 	for i := order - 1; i >= findAddr+1; i-- {
-	// 		node.Keys[i] = node.Keys[i-1]
-	// 	}
-	// 	node.Keys[findAddr] = target
-	// 	node := new(BPlusTreeNode)
-	// 	node.num++
-	// 	if node.num == order {
-	// 		node = bplustree.splitLeaf(pager, node)
-	// 		for node.num == order {
-	// 			node = bplustree.splitNoneLeaf(pager, node)
-	// 		}
-	// 	}
-	// } else {
-	// 	fmt.Println("Already exists")
-	// }
+	// insert value
+	if node.isLeaf {
+		copy(node.Children[index+1:], node.Children[index:node.order])
+		node.Children[index] = value
+	} else {
+		copy(node.Children[index+2:], node.Children[index+1:node.order])
+		node.Children[index+1] = value
+	}
+	node.Num++
+	return true
 }
 
-func (bplustree *BPlusTree) splitLeaf(pager pager.Pager, node *BPlusTreeNode) *BPlusTreeNode {
+func (bplustree *BPlusTree) Insert(key index.KeyType, value index.ValueType) error {
+	valueChan := bplustree.Search(key)
+	for v := range valueChan {
+		if bytes.Equal(value, v) {
+			fmt.Println("value Already exisits")
+			return nil
+		}
+	}
+	node, index := bplustree.searchLowerInTree(key)
+	bplustree.insertInNode(key, value, node, index)
+	if node.Num >= bplustree.order {
+		bplustree.splitLeaf(node)
+	}
+	return nil
+}
+
+func (tree *BPlusTree) splitLeaf(node *BPlusTreeNode) {
 	// if is root, create new root
 	var parentNode *BPlusTreeNode
-	if node == bplustree.Root {
-		parentNode = new(BPlusTreeNode)
-		parentNode.CurrentAddr = pager.NewNode(parentNode)
-		parentNode.isLeaf = false
-		parentNode.num = 0
-		parentNode.Children[0] = node.CurrentAddr
+	if node.CurrentAddr == tree.Root {
+		parentNode = NewBPlusTreeNode(tree.order, false)
+		parentPage := tree.pager.CreatePage(parentNode)
+		parentNode.CurrentAddr = parentPage.PageNo
+		parentNode.Num = 0
+		parentNode.Children[0] = util.Uint32ToBytes(node.CurrentAddr)
 
 		node.parent = parentNode.CurrentAddr
-		bplustree.Root = parentNode
+		tree.Root = parentNode.CurrentAddr
+		tree.FirstLeaf = node.CurrentAddr
+		tree.LastLeaf = node.CurrentAddr
 	} else {
-		parentNode = pager.LoadNode(node.parent)
+		parentNode, _ = tree.getNode(node.parent)
 	}
-	half := order / 2
+
+	half := tree.order / 2
 	// new node
-	newNode := node
-	newNode.num = order - half
-	node.num = half
-	newNode.CurrentAddr = pager.NewNode(newNode)
-	for i := half; i < order; i++ {
+	newNode := NewBPlusTreeNode(tree.order, true)
+	newNode.Num = tree.order - half
+	node.Num = half
+	newNodePage := tree.pager.CreatePage(newNode)
+	newNode.CurrentAddr = newNodePage.PageNo
+
+	for i := half; i < tree.order; i++ {
 		newNode.Keys[i-half] = node.Keys[i]
 		newNode.Children[i-half] = node.Children[i]
 	}
-	// change neigbor relation
-	newNode.RightAddr = node.RightAddr
-	rightNode := pager.LoadNode(node.RightAddr)
-	rightNode.LeftAddr = newNode.CurrentAddr
 
+	// change neighbor relation
+	// before change: node->rightNode newNode
+	// after change : node->newNode->rightNode
 	node.RightAddr = newNode.CurrentAddr
 	newNode.LeftAddr = node.CurrentAddr
-	parentNode.Insert(newNode.Children[0], newNode.CurrentAddr)
-	return parentNode
+	newNode.RightAddr = node.RightAddr
+
+	rightNode, err := tree.getNode(node.RightAddr)
+
+	if err != nil {
+		log.Errorf("fail to load neighbor node: %v", err)
+		// update last leaf
+		tree.LastLeaf = newNode.CurrentAddr
+	} else {
+		rightNode.LeftAddr = newNode.CurrentAddr
+	}
+
+	// change parent node
+	pos := parentNode.Lower_Bound(newNode.Keys[0])
+	tree.insertInNode(newNode.Keys[0], util.Uint32ToBytes(newNode.CurrentAddr), parentNode, pos)
+	if parentNode.Num >= tree.order {
+		// recursion in splitNoneLeaf()
+		tree.splitNoneLeaf(parentNode)
+	}
 }
 
-func (bplustree *BPlusTree) splitNoneLeaf(pager pager.Pager, node *BPlusTreeNode) *BPlusTreeNode {
+func (tree *BPlusTree) splitNoneLeaf(node *BPlusTreeNode) {
 	// if is root, create new root
 	var parentNode *BPlusTreeNode
-	if node == bplustree.Root {
-		parentNode = new(BPlusTreeNode)
-		parentNode.CurrentAddr = pager.NewNode(parentNode)
-		parentNode.isLeaf = false
-		parentNode.num = 0
-		parentNode.Children[0] = node.CurrentAddr
+	if node.CurrentAddr == tree.Root {
+		parentNode = NewBPlusTreeNode(tree.order, false)
+		parentPage := tree.pager.CreatePage(parentNode)
+		parentNode.CurrentAddr = parentPage.PageNo
+		parentNode.Num = 0
+		parentNode.Children[0] = util.Uint32ToBytes(node.CurrentAddr)
 
 		node.parent = parentNode.CurrentAddr
-		bplustree.Root = parentNode
+		tree.Root = parentNode.CurrentAddr
+		tree.FirstLeaf = node.CurrentAddr
+		tree.LastLeaf = node.CurrentAddr
 	} else {
-		parentNode = pager.LoadNode(node.parent)
+		parentNode, _ = tree.getNode(node.parent)
 	}
-	half := order / 2
+
+	half := tree.order / 2
 	// new node
-	newNode := node
-	newNode.num = order - half - 1
-	node.num = half
-	newNode.CurrentAddr = pager.NewNode(newNode)
-	targetVal := node.Children[half]
-	for i := half + 1; i < order; i++ {
+	newNode := NewBPlusTreeNode(tree.order, true)
+	newNode.Num = tree.order - half - 1
+	node.Num = half
+	newNodePage := tree.pager.CreatePage(newNode)
+	newNode.CurrentAddr = newNodePage.PageNo
+
+	// copy half node
+	for i := half + 1; i < tree.order; i++ {
 		newNode.Keys[i-half-1] = node.Keys[i]
 		newNode.Children[i-half-1] = node.Children[i]
 	}
 	// one more child in non-leaf node than keys
-	newNode.Children[newNode.num] = node.Children[order]
+	newNode.Children[newNode.Num] = node.Children[tree.order]
 
-	parentNode.Insert(targetVal, newNode.CurrentAddr)
-	return parentNode
+	// update child node, parent node relationships
+	newNode.parent = parentNode.CurrentAddr
+
+	for i := uint16(0); i < newNode.Num+1; i++ {
+		child, err := tree.getNode(util.BytesToUInt32(newNode.Children[i]))
+		if err != nil {
+			log.Fatal("can't update new node's children's parent: %v", err)
+		}
+		child.parent = newNode.CurrentAddr
+	}
+
+	// splite parent node if need
+	index := parentNode.Lower_Bound(newNode.Keys[0])
+	tree.insertInNode(newNode.Keys[0],
+		util.Uint32ToBytes(newNode.CurrentAddr),
+		parentNode,
+		index)
+	if parentNode.Num >= tree.order {
+		tree.splitNoneLeaf(parentNode)
+	}
 }
