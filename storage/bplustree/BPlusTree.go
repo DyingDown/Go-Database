@@ -49,14 +49,11 @@ func (bplustree *BPlusTree) getNode(pageNum uint32) (*BPlusTreeNode, error) {
 	_, err := bplustree.pager.GetPage(pageNum, node)
 	return node, err
 }
-
-func (bplustree *BPlusTree) Search(target index.KeyType) <-chan index.ValueType {
-	ValueChan := make(chan index.ValueType, 100)
+func (bplustree *BPlusTree) searchLowerInTree(target index.KeyType) (*BPlusTreeNode, uint16) {
 	node, err := bplustree.getNode(bplustree.Root)
 	if err != nil {
 		log.Errorf("fail to load tree node: %v", err)
-		close(ValueChan)
-		return ValueChan
+		return nil, 0
 	}
 
 	// reach leaf node
@@ -65,14 +62,21 @@ func (bplustree *BPlusTree) Search(target index.KeyType) <-chan index.ValueType 
 		node, err = bplustree.getNode(util.BytesToUInt32(nextAddr))
 		if err != nil {
 			log.Fatal(err)
+			return nil, 0
 		}
 	}
 
 	// search in leaf node
-	targetPos := Lower_Bound(target, node.Keys, 0, node.Num)
+	targetPos := node.Lower_Bound(target)
+	return node, targetPos
+}
+func (bplustree *BPlusTree) Search(target index.KeyType) <-chan index.ValueType {
+	ValueChan := make(chan index.ValueType, 100)
+	var err error
+	node, targetPos := bplustree.searchLowerInTree(target)
 
 	// verify targetPos
-	if targetPos == node.Num || bytes.Compare(node.Keys[targetPos], target) != 0 {
+	if node == nil || targetPos == node.Num || bytes.Compare(node.Keys[targetPos], target) != 0 {
 		node = nil
 		close(ValueChan)
 	}
@@ -108,25 +112,26 @@ func (bplustree *BPlusTree) Search(target index.KeyType) <-chan index.ValueType 
 	return ValueChan
 }
 
-func (bplustree *BPlusTree) Insert(target int, pager pager.Pager) {
-	findAddr, node := bplustree.search(target, pager)
-	if node != nil {
-		// insert
-		for i := order - 1; i >= findAddr+1; i-- {
-			node.Keys[i] = node.Keys[i-1]
-		}
-		node.Keys[findAddr] = target
-		node := new(BPlusTreeNode)
-		node.num++
-		if node.num == order {
-			node = bplustree.splitLeaf(pager, node)
-			for node.num == order {
-				node = bplustree.splitNoneLeaf(pager, node)
-			}
-		}
-	} else {
-		fmt.Println("Already exists")
-	}
+func (bplustree *BPlusTree) Insert(key index.KeyType, value index.ValueType) {
+	valueChan := bplustree.Search(key)
+
+	// if node != nil {
+	// 	// insert
+	// 	for i := order - 1; i >= findAddr+1; i-- {
+	// 		node.Keys[i] = node.Keys[i-1]
+	// 	}
+	// 	node.Keys[findAddr] = target
+	// 	node := new(BPlusTreeNode)
+	// 	node.num++
+	// 	if node.num == order {
+	// 		node = bplustree.splitLeaf(pager, node)
+	// 		for node.num == order {
+	// 			node = bplustree.splitNoneLeaf(pager, node)
+	// 		}
+	// 	}
+	// } else {
+	// 	fmt.Println("Already exists")
+	// }
 }
 
 func (bplustree *BPlusTree) splitLeaf(pager pager.Pager, node *BPlusTreeNode) *BPlusTreeNode {

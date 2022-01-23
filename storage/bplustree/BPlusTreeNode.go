@@ -30,12 +30,12 @@ func NewBPlusTreeNode(order uint16, leaf bool) *BPlusTreeNode {
 }
 
 func (node *BPlusTreeNode) SearchNonLeaf(target index.KeyType) index.ValueType {
-	pos := Lower_Bound(target, node.Keys, 0, node.Num)
+	pos := node.Lower_Bound(target)
 	return node.Children[pos]
 }
 
 func (node *BPlusTreeNode) Insert(target index.KeyType, child index.ValueType) {
-	pos := Lower_Bound(target, node.Keys, 0, node.Num)
+	pos := node.Lower_Bound(target)
 	for i := node.Num - 1; i > pos; i-- {
 		node.Keys[i] = node.Keys[i-1]
 		if i-pos > 1 || node.isLeaf {
@@ -50,10 +50,11 @@ func (node *BPlusTreeNode) Insert(target index.KeyType, child index.ValueType) {
 	}
 }
 
-func Lower_Bound(target index.KeyType, keys []index.KeyType, left uint16, right uint16) uint16 {
+func (node *BPlusTreeNode) Lower_Bound(target index.KeyType) uint16 {
+	left, right := uint16(0), node.Num
 	for left < right {
 		mid := (left + right) / 2
-		if compare(keys[mid], target) < 0 {
+		if compare(node.Keys[mid], target) < 0 {
 			left = mid + 1
 		} else {
 			right = mid
