@@ -30,6 +30,7 @@ func (record *RecordData) Decode(r io.Reader) error {
 	return decoder.Decode(record)
 }
 
+// @description: add new rows into table
 func (record *RecordData) AppendData(rows ast.Row) {
 	record.rows = append(record.rows, rows)
 }

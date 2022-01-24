@@ -1,3 +1,10 @@
+/*
+ *	Cache:
+ *		store the recently or frequently visited page
+ *	TODOS:
+ *		1. Select a strategy
+ *		2. lru is not suitable for database
+ */
 package cache
 
 type Cache struct {

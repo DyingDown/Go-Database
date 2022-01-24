@@ -17,7 +17,7 @@ type BPlusTreeNode struct {
 	Num         uint16
 	Keys        []index.KeyType
 	Children    []index.ValueType
-	tree        *BPlusTree
+	tree        *BPlusTree // b+ tree, not saved in file
 }
 
 func NewBPlusTreeNode(order uint16, leaf bool) *BPlusTreeNode {
@@ -29,32 +29,38 @@ func NewBPlusTreeNode(order uint16, leaf bool) *BPlusTreeNode {
 	}
 }
 
+// @description: search target pos in none leaf node
 func (node *BPlusTreeNode) SearchNonLeaf(target index.KeyType) index.ValueType {
 	pos := node.Lower_Bound(target)
 	return node.Children[pos]
 }
 
-func (node *BPlusTreeNode) Insert(target index.KeyType, child index.ValueType) {
-	pos := node.Lower_Bound(target)
-	for i := node.Num - 1; i > pos; i-- {
-		node.Keys[i] = node.Keys[i-1]
-		if i-pos > 1 || node.isLeaf {
-			node.Children[i] = node.Children[i-1]
-		}
-	}
-	node.Keys[pos] = target
+// @description: insert the data in a specific node
+// @return: is the insert success
+func (node *BPlusTreeNode) insertInNode(key index.KeyType, value index.ValueType, index uint16) bool {
+	// insert key
+	copy(node.Keys[index+1:], node.Keys[index:node.order-1])
+	node.Keys[index] = key
+
+	// insert value
 	if node.isLeaf {
-		node.Children[pos+1] = child
+		copy(node.Children[index+1:], node.Children[index:node.order])
+		node.Children[index] = value
 	} else {
-		node.Children[pos] = child
+		copy(node.Children[index+2:], node.Children[index+1:node.order])
+		node.Children[index+1] = value
 	}
+	node.Num++
+	return true
 }
 
+// search keys in node
+// binary search
 func (node *BPlusTreeNode) Lower_Bound(target index.KeyType) uint16 {
 	left, right := uint16(0), node.Num
 	for left < right {
 		mid := (left + right) / 2
-		if compare(node.Keys[mid], target) < 0 {
+		if bytes.Compare(node.Keys[mid], target) < 0 {
 			left = mid + 1
 		} else {
 			right = mid
@@ -63,10 +69,7 @@ func (node *BPlusTreeNode) Lower_Bound(target index.KeyType) uint16 {
 	return left
 }
 
-func compare(a, b index.KeyType) int {
-	return bytes.Compare(a, b)
-}
-
+// unit is byte
 func (node *BPlusTreeNode) Size() int {
 	keySize := int(node.Num) * len(node.Keys[0])
 	valueSize := int(node.Num+1) * len(node.Children[0])

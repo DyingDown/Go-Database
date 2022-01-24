@@ -27,6 +27,7 @@ type Pager struct {
 	file  *os.File
 }
 
+// sql file already existed
 func OpenFile(filepath string) *Pager {
 	c := cache.CreateCache()
 	f, err := os.OpenFile(filepath, os.O_RDWR, 0666)
@@ -46,6 +47,7 @@ func OpenFile(filepath string) *Pager {
 	return pager
 }
 
+// create a new sql file
 func CreateFile(filepath string) *Pager {
 	c := cache.CreateCache()
 	f, err := os.OpenFile(filepath, os.O_RDWR|os.O_CREATE, 0666)
@@ -62,35 +64,41 @@ func CreateFile(filepath string) *Pager {
 	return pager
 }
 
+// @param: pageNum uint32    No. of page
+// @param: pdata   PageData  An empty struct, as a container to receive data
+// @description: load a page from cache or file
 func (pager *Pager) GetPage(pageNum uint32, pdata PageData) (*Page, error) {
 	data := pager.cache.GetData(pageNum)
 	if data != nil {
 		return data.(*Page), nil
-	} else {
+	} else { // if the page is not in cache
 		newPage := new(Page)
 		err := newPage.Decode(pager.file, pdata)
 		if err != nil {
 			log.Errorf("fail to decode page: %v", err)
 			return nil, err
 		}
+		// add the page to cache
 		pager.cache.AddData(pageNum, newPage)
 		return newPage, nil
 	}
 }
 
+//
 func (pager *Pager) CreatePage(data PageData) *Page {
 	fileInfo, err := pager.file.Stat()
 	if err != nil {
-		panic("Fail to fetch file status")
+		log.Errorf("Fail to fetch file status: %v", err)
 	}
 	fileSize := fileInfo.Size()
+	// PageNo*PageSize of offset relative to head of file
 	newPageNo := uint32(fileSize / util.PageSize)
 	page := NewPage(newPageNo, data)
 	pager.WritePage(page)
 	return page
 }
 
-// select a usable page
+// @description: select a usable page
 // select the last page of the table
 // if the last page's free space is not enough to store the new data, then create a new page
 func (pager *Pager) SelectPage(dataSize int, tableName string) (page *Page, err error) {
@@ -101,7 +109,7 @@ func (pager *Pager) SelectPage(dataSize int, tableName string) (page *Page, err 
 	table := metadata.GetTableInfo(tableName)
 	page, err = pager.GetPage(table.LastPage, pagedata.NewRecordData())
 	if err != nil {
-		return nil, fmt.Errorf("Can not Get the last page of table %v", tableName)
+		return nil, err
 	}
 	if util.PageSize-page.Size() < dataSize {
 		// rest space of last page is not enough for new data
@@ -117,7 +125,7 @@ func (pager *Pager) SelectPage(dataSize int, tableName string) (page *Page, err 
 	}
 }
 
-// flush page to disk
+// @description: flush page to disk
 func (pager *Pager) WritePage(page *Page) {
 	bytes := page.Encode()
 	n, err := pager.file.WriteAt(bytes, int64(page.PageNo*util.PageSize))

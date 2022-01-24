@@ -17,7 +17,7 @@ type BPlusTree struct {
 	KeySize   uint8
 	ValueSize uint8
 	order     uint16
-	pager     *pager.Pager
+	pager     *pager.Pager // this will not store in file
 }
 
 func NewBPlusTree(pager *pager.Pager, keySize uint8, valueSize uint8) *BPlusTree {
@@ -42,6 +42,7 @@ func NewBPlusTree(pager *pager.Pager, keySize uint8, valueSize uint8) *BPlusTree
 	}
 }
 
+// Node is pageData, a part of Page
 func (bplustree *BPlusTree) getNode(pageNum uint32) (*BPlusTreeNode, error) {
 	node := &BPlusTreeNode{
 		tree: bplustree,
@@ -49,6 +50,9 @@ func (bplustree *BPlusTree) getNode(pageNum uint32) (*BPlusTreeNode, error) {
 	_, err := bplustree.pager.GetPage(pageNum, node)
 	return node, err
 }
+
+// @description: search the first data in tree leaf that match the target
+// @return: the position in node it found
 func (bplustree *BPlusTree) searchLowerInTree(target index.KeyType) (*BPlusTreeNode, uint16) {
 	node, err := bplustree.getNode(bplustree.Root)
 	if err != nil {
@@ -57,7 +61,7 @@ func (bplustree *BPlusTree) searchLowerInTree(target index.KeyType) (*BPlusTreeN
 	}
 
 	// reach leaf node
-	for node.isLeaf == false {
+	for !node.isLeaf {
 		nextAddr := node.SearchNonLeaf(target)
 		node, err = bplustree.getNode(util.BytesToUInt32(nextAddr))
 		if err != nil {
@@ -70,6 +74,9 @@ func (bplustree *BPlusTree) searchLowerInTree(target index.KeyType) (*BPlusTreeN
 	targetPos := node.Lower_Bound(target)
 	return node, targetPos
 }
+
+// @description: search all data that match target
+// @return: use channel to store all eligible data
 func (bplustree *BPlusTree) Search(target index.KeyType) <-chan index.ValueType {
 	ValueChan := make(chan index.ValueType, 100)
 	var err error
@@ -112,39 +119,28 @@ func (bplustree *BPlusTree) Search(target index.KeyType) <-chan index.ValueType 
 	return ValueChan
 }
 
-func (tree *BPlusTree) insertInNode(key index.KeyType, value index.ValueType, node *BPlusTreeNode, index uint16) bool {
-	// insert key
-	copy(node.Keys[index+1:], node.Keys[index:node.order-1])
-	node.Keys[index] = key
-
-	// insert value
-	if node.isLeaf {
-		copy(node.Children[index+1:], node.Children[index:node.order])
-		node.Children[index] = value
-	} else {
-		copy(node.Children[index+2:], node.Children[index+1:node.order])
-		node.Children[index+1] = value
-	}
-	node.Num++
-	return true
-}
-
+// @description: insert data into tree
 func (bplustree *BPlusTree) Insert(key index.KeyType, value index.ValueType) error {
 	valueChan := bplustree.Search(key)
+	// check if the data already existed in the search result
 	for v := range valueChan {
+		// if existed
 		if bytes.Equal(value, v) {
 			fmt.Println("value Already exisits")
 			return nil
 		}
 	}
+	// search again to find insert position
 	node, index := bplustree.searchLowerInTree(key)
-	bplustree.insertInNode(key, value, node, index)
+	node.insertInNode(key, value, node, index)
 	if node.Num >= bplustree.order {
 		bplustree.splitLeaf(node)
 	}
 	return nil
 }
 
+// if node contains more keys than its size
+// then node need to be split into two
 func (tree *BPlusTree) splitLeaf(node *BPlusTreeNode) {
 	// if is root, create new root
 	var parentNode *BPlusTreeNode
@@ -195,7 +191,7 @@ func (tree *BPlusTree) splitLeaf(node *BPlusTreeNode) {
 
 	// change parent node
 	pos := parentNode.Lower_Bound(newNode.Keys[0])
-	tree.insertInNode(newNode.Keys[0], util.Uint32ToBytes(newNode.CurrentAddr), parentNode, pos)
+	parentNode.insertInNode(newNode.Keys[0], util.Uint32ToBytes(newNode.CurrentAddr), pos)
 	if parentNode.Num >= tree.order {
 		// recursion in splitNoneLeaf()
 		tree.splitNoneLeaf(parentNode)
@@ -249,10 +245,8 @@ func (tree *BPlusTree) splitNoneLeaf(node *BPlusTreeNode) {
 
 	// splite parent node if need
 	index := parentNode.Lower_Bound(newNode.Keys[0])
-	tree.insertInNode(newNode.Keys[0],
-		util.Uint32ToBytes(newNode.CurrentAddr),
-		parentNode,
-		index)
+	newNode.insertInNode(newNode.Keys[0], util.Uint32ToBytes(newNode.CurrentAddr), index)
+	// recurse to split parent node
 	if parentNode.Num >= tree.order {
 		tree.splitNoneLeaf(parentNode)
 	}

@@ -55,7 +55,7 @@ func NewPage(pageNo uint32, data PageData) *Page {
 	}
 }
 
-// change *page to bytes
+// @description: change *page to bytes
 func (page *Page) Encode() []byte {
 	buf := bytes.NewBuffer(make([]byte, util.PageSize))
 	binary.Write(buf, binary.BigEndian, page.pageType)
@@ -71,7 +71,7 @@ func (page *Page) Encode() []byte {
 	return buf.Bytes()
 }
 
-// change bytes to *page
+// @description: change bytes to *page
 func (page *Page) Decode(r io.Reader, pageData PageData) error {
 	// reading order should be the order they are defined in the prev code
 	err := binary.Read(r, binary.BigEndian, &page.pageType)
@@ -104,7 +104,7 @@ func (page *Page) Decode(r io.Reader, pageData PageData) error {
 	return err
 }
 
-// return how many bytes a page has used
+// @return: how many bytes a page has used
 func (page *Page) Size() int {
 	// pageType + pageNo + prevePageNo + nextPageNo + dirty + pageData
 	// uint8 + uint32 + uint32 + uint32 + bool + pageData
