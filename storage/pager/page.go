@@ -1,3 +1,14 @@
+/*
+ *	All kinds of datas are stored in Page Struct
+ *  There are tree types of data:
+ *  	1. Meta:  stores the meta information of sql file, tables, and ect.
+ *		2. Data:  stores rows of tables
+ *		3. Index: stores b+ tree node
+ *	Page also have some meta information to Uniquely identify page or to help select page
+ *  The size of the page is const, and it's defined in uil package
+ *	Page is controled directly by pager
+ */
+
 package pager
 
 import (
@@ -8,13 +19,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 )
-
-/*
- *  page has three types
- *	mata page:  meta information of table
- * 	data page:  data of table
- * 	index page: index(bplustree node) information
- */
 
 type PageType uint8
 
@@ -32,7 +36,10 @@ type PageData interface {
 }
 
 type Page struct {
-	pageType   PageType
+	// currently has no use
+	pageType PageType
+	// PageNo*PageSize is the offset relative to the head of file
+	// PageSize if a const
 	PageNo     uint32 // page number
 	prevPageNo uint32
 	nextPageNo uint32
@@ -42,7 +49,6 @@ type Page struct {
 
 func NewPage(pageNo uint32, data PageData) *Page {
 	return &Page{
-		pageType: ptype,
 		PageNo:   pageNo,
 		dirty:    false,
 		pageData: data,
@@ -53,7 +59,7 @@ func NewPage(pageNo uint32, data PageData) *Page {
 func (page *Page) Encode() []byte {
 	buf := bytes.NewBuffer(make([]byte, util.PageSize))
 	binary.Write(buf, binary.BigEndian, page.pageType)
-	binary.Write(buf, binary.BigEndian, page.pageNo)
+	binary.Write(buf, binary.BigEndian, page.PageNo)
 	binary.Write(buf, binary.BigEndian, page.prevPageNo)
 	binary.Write(buf, binary.BigEndian, page.nextPageNo)
 	// page data needs special encode for different data types
@@ -65,13 +71,15 @@ func (page *Page) Encode() []byte {
 	return buf.Bytes()
 }
 
+// change bytes to *page
 func (page *Page) Decode(r io.Reader, pageData PageData) error {
+	// reading order should be the order they are defined in the prev code
 	err := binary.Read(r, binary.BigEndian, &page.pageType)
 	if err != nil {
 		log.Errorf("fail to get page type: %v", err)
 		return err
 	}
-	err = binary.Read(r, binary.BigEndian, &page.pageNo)
+	err = binary.Read(r, binary.BigEndian, &page.PageNo)
 	if err != nil {
 		log.Errorf("fail to get page number: %v", err)
 	}
@@ -79,6 +87,7 @@ func (page *Page) Decode(r io.Reader, pageData PageData) error {
 	if err != nil {
 		log.Errorf("fail to get previous page number: %v", err)
 	}
+
 	err = binary.Read(r, binary.BigEndian, &page.nextPageNo)
 	if err != nil {
 		log.Errorf("fail to get next page number: %v", err)
@@ -95,6 +104,9 @@ func (page *Page) Decode(r io.Reader, pageData PageData) error {
 	return err
 }
 
+// return how many bytes a page has used
 func (page *Page) Size() int {
+	// pageType + pageNo + prevePageNo + nextPageNo + dirty + pageData
+	// uint8 + uint32 + uint32 + uint32 + bool + pageData
 	return 1 + 4 + 4 + 4 + 1 + page.pageData.Size()
 }

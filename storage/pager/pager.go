@@ -1,3 +1,14 @@
+/*
+ *	Pager:
+ * 		cache:   used to store frequently visited page to increase speed of loading pages
+ *		os.File: sql file
+ *
+ *	Main Functioins:
+ *		Get data from page
+ *		Write data into page
+ *		Find the right page to store data
+ */
+
 package pager
 
 import (
@@ -79,6 +90,9 @@ func (pager *Pager) CreatePage(data PageData) *Page {
 	return page
 }
 
+// select a usable page
+// select the last page of the table
+// if the last page's free space is not enough to store the new data, then create a new page
 func (pager *Pager) SelectPage(dataSize int, tableName string) (page *Page, err error) {
 	if dataSize > util.PageSize {
 		return nil, fmt.Errorf("size of data is over a page's size")
@@ -94,9 +108,9 @@ func (pager *Pager) SelectPage(dataSize int, tableName string) (page *Page, err 
 		// need to create a new page to store it
 		newDataPage := pager.CreatePage(pagedata.NewRecordData())
 		newDataPage.nextPageNo = math.MaxUint32
-		newDataPage.prevPageNo = page.pageNo
-		page.nextPageNo = newDataPage.pageNo
-		table.LastPage = newDataPage.pageNo
+		newDataPage.prevPageNo = page.PageNo
+		page.nextPageNo = newDataPage.PageNo
+		table.LastPage = newDataPage.PageNo
 		return newDataPage, nil
 	} else {
 		return page, nil
