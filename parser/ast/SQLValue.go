@@ -34,18 +34,25 @@ func NewSQLValue(val token.Token) SQLValue {
 	}
 }
 
-func (sqlvalue *SQLValue) getInt() int {
+func (sqlvalue *SQLValue) GetInt() int {
 	num, _ := strconv.Atoi(sqlvalue.Value)
 	return num
 }
 
-func (sqlvalue *SQLValue) getFloat() float64 {
+func (sqlvalue *SQLValue) GetFloat() float64 {
 	num, _ := strconv.ParseFloat(sqlvalue.Value, 32)
 	return num
 }
 
-func (sqlvalue *SQLValue) getString() string {
-	return sqlvalue.Value
+func (sqlvalue *SQLValue) GetString() string {
+	if sqlvalue.ValueType == STRING {
+		return sqlvalue.Value
+	}
+	return ""
+}
+
+func (sqlvalue *SQLValue) GetType() SQLType {
+	return sqlvalue.ValueType
 }
 
 type Row []SQLValue

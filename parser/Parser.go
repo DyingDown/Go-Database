@@ -147,12 +147,8 @@ func (parser *Parser) Select() {
 		if !parser.Match(token.FROM) {
 			panic("Not a valid select, missing word 'from'")
 		}
-		_tk = true
-		for _tk || parser.Match(token.COMMA) {
-			_tk = false
-			if parser.Lex.getCurrentToken().Types == token.ID {
-				stmt.TableLists = append(stmt.TableLists, parser.Lex.getNextToken().Value)
-			}
+		if parser.Lex.getCurrentToken().Types == token.ID {
+			stmt.Table = parser.Lex.getNextToken().Value
 		}
 		if parser.Lex.getNextToken().Types == token.WHERE {
 			stmt.Expr = parser.getExpressions()

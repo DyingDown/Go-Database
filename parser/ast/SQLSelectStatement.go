@@ -2,6 +2,6 @@ package ast
 
 type SQLSelectStatement struct {
 	SelectList []SQLSelectListElement
-	TableLists []string
+	Table      string
 	Expr       SQLExpression
 }

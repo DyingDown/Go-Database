@@ -47,7 +47,7 @@ func OpenFile(filepath string) *Pager {
 	return pager
 }
 
-// create a new sql file
+// @description: create a new sql file
 func CreateFile(filepath string) *Pager {
 	c := cache.CreateCache()
 	f, err := os.OpenFile(filepath, os.O_RDWR|os.O_CREATE, 0666)
