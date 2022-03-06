@@ -14,11 +14,12 @@ type MetaData struct {
 }
 
 type TableInfo struct {
-	tableId   uint32
-	tableName string
-	columns   []ast.SQLColumnDefine
-	FirstPage uint32
-	LastPage  uint32
+	tableId    uint32
+	tableName  string
+	columns    []*ast.SQLColumnDefine
+	FirstPage  uint32
+	LastPage   uint32
+	PrimaryKey uint32
 }
 
 func NewMetaData() *MetaData {
@@ -46,4 +47,17 @@ func (metadata *MetaData) GetTableInfo(tableName string) *TableInfo {
 
 func (metadata *MetaData) Size() int {
 	return len(metadata.Encode())
+}
+
+func (tableInfo *TableInfo) GetColumnInfo(columnName string) (int, *ast.SQLColumnDefine) {
+	for index, column := range tableInfo.columns {
+		if columnName == column.ColumnName {
+			return index, column
+		}
+	}
+	return -1, nil
+}
+
+func (tableInfo *TableInfo) GetPrimaryKey() string {
+	return tableInfo.columns[tableInfo.PrimaryKey].ColumnName
 }

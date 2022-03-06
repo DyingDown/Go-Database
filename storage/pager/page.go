@@ -110,3 +110,8 @@ func (page *Page) Size() int {
 	// uint8 + uint32 + uint32 + uint32 + bool + pageData
 	return 1 + 4 + 4 + 4 + 1 + page.pageData.Size()
 }
+
+// @description: get page data
+func (page *Page) GetPageData() PageData {
+	return page.pageData
+}

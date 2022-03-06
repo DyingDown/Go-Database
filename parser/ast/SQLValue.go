@@ -56,3 +56,7 @@ func (sqlvalue *SQLValue) GetType() SQLType {
 }
 
 type Row []SQLValue
+
+func (row *Row) GetPrimaryKey() SQLValue {
+	return (*row)[0]
+}

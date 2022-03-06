@@ -1,5 +1,9 @@
 package ast
 
+import (
+	"go-database/storage/index"
+)
+
 type Types int
 
 const (
@@ -14,13 +18,14 @@ type SQLColumnDefine struct {
 	ColumnName string
 	ColumnType Types
 	len        int
+	Index      index.Index
+	tableId    uint32
 }
 
-func NewSQLColumnDefine(columnName string, columnType Types) SQLColumnDefine {
-	columnDefine := SQLColumnDefine{
-		columnName,
-		columnType,
-		500,
+func NewSQLColumnDefine(columnName string, columnType Types) *SQLColumnDefine {
+	return &SQLColumnDefine{
+		ColumnName: columnName,
+		ColumnType: columnType,
+		len:        500,
 	}
-	return columnDefine
 }

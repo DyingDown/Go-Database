@@ -1,7 +1,7 @@
 /*
  *	Data Manager
  *	Manage Pager and Index
- *	DM receives a condition and return data by calling Pager and Index
+ *	DM receives a condition and returns data by calling Pager and Index
  *	DM Revie
  */
 package dm
@@ -9,8 +9,14 @@ package dm
 import (
 	"fmt"
 	"go-database/parser/ast"
+	"go-database/parser/token"
+	"go-database/storage/index"
 	"go-database/storage/pager"
 	"go-database/storage/pager/pagedata"
+	"go-database/util"
+	"sync"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type DataManager struct {
@@ -55,7 +61,7 @@ func (dm *DataManager) SelectData(st ast.SQLSelectStatement) (<-chan ast.Row, er
 		}
 	} else {
 		// if no conditions, return the whole table
-		dm.scanTable(rows, tableInfo)
+		dm.scanTable(rows, tableInfo, ast.SQLSingleExpression{})
 	}
 	return rows, nil
 }
@@ -69,14 +75,44 @@ func (dm *DataManager) eqSearch(rows chan<- ast.Row, expr ast.SQLSingleExpressio
 			close(rows)
 			return
 		}
-		//
+		// more info about this column
+		columnDefine := tableInfo.GetColumnInfo(columnName)
+		if columnDefine == nil {
+			// close
+			close(rows)
+			log.Errorf("column: %s does not exist", columnName)
+			return
+		}
+		index := columnDefine.Index
+		if index == nil {
+			dm.scanTable(rows, tableInfo, expr)
+			return
+		}
+		if tableInfo.GetPrimaryKey() == columnName {
+			dm.pkEqSearch(rows, index, expr)
+		} else {
+			// if the column is not primary key
+			_, pkColumn := tableInfo.GetColumnInfo(tableInfo.GetPrimaryKey())
+			if pkColumn == nil {
+				close(rows)
+				log.Errorf("Table has no primary column: %s", tableInfo.GetPrimaryKey())
+				return
+			}
+			// if the primary column has index
+			pIndex := pkColumn.Index
+			if pIndex == nil {
+				close(rows)
+				log.Errorf("Primary Index: %s not exist", tableInfo.GetPrimaryKey())
+			}
+			dm.nPkEqSearch(rows, index, pIndex, expr)
+			return
+		}
 	} else {
 		if expr.LeftVal == expr.RightVal {
 			// if the condition satisfies every row
-			dm.scanTable(rows, tableInfo)
+			dm.scanTable(rows, tableInfo, expr)
 		} else {
 			// if conditions dissatisfies each row
-
 			// TODO: 应该由最后一个expr来关闭chan
 			close(rows)
 			return
@@ -84,6 +120,7 @@ func (dm *DataManager) eqSearch(rows chan<- ast.Row, expr ast.SQLSingleExpressio
 	}
 }
 
+// @description: not equal search
 func (dm *DataManager) nEqSearch(rows chan<- ast.Row, expr ast.SQLSingleExpression, tableInfo *pagedata.TableInfo) {
 
 }
@@ -92,6 +129,181 @@ func (dm *DataManager) rangeSearch(rows chan<- ast.Row, expr ast.SQLSingleExpres
 
 }
 
-func (dm *DataManager) scanTable(rows chan<- ast.Row, tableInfo *pagedata.TableInfo) {
+// @description: scan the whole table
+// Start from the first page and ends with the last page
+// For each page, scan all rows to find satisfied rows
+func (dm *DataManager) scanTable(rows chan<- ast.Row, tableInfo *pagedata.TableInfo, expr ast.SQLSingleExpression) {
+	// find which rows to compare
 
 }
+
+// @description:  receives a sql expression and returns a function
+// @param: sql expression
+// @return: a function that can judge a row is satisfied or not
+func (dm *DataManager) getRowFilter(tableInfo *pagedata.TableInfo, expr ast.SQLSingleExpression) (func(row ast.Row) bool, error) {
+	// if the both sides are columns
+	if expr.LeftVal.GetType() == ast.COLUMN && expr.RightVal.GetType() == ast.COLUMN {
+		leftColumnName := expr.LeftVal.GetString()
+		rightColumName := expr.RightVal.GetString()
+		if leftColumnName == "" || rightColumName == "" {
+			return nil, fmt.Errorf("column name is empty")
+		} else {
+			leftIndex, leftColumn := tableInfo.GetColumnInfo(leftColumnName)
+			rightIndex, rightColum := tableInfo.GetColumnInfo(rightColumName)
+			if leftColumn == nil {
+				return nil, fmt.Errorf("column: %s does not exist", leftColumnName)
+			}
+			if rightColum == nil {
+				return nil, fmt.Errorf("column: %s does not exist", rightColumName)
+			}
+			if expr.CompareOp == token.EQUAL {
+				return func(row ast.Row) bool {
+					return row[leftIndex] == row[rightIndex]
+				}, nil
+			} else if expr.CompareOp == token.NOT_EQUAL {
+				return func(row ast.Row) bool {
+					return row[leftIndex] != row[rightIndex]
+				}, nil
+			} else {
+				return nil, fmt.Errorf("compare operator: %s is not supported", expr.CompareOp)
+			}
+		}
+	} else if expr.RightVal.GetType() == ast.COLUMN {
+		columnName := expr.RightVal.GetString()
+		if columnName == "" {
+			return nil, fmt.Errorf("column: %s does not exist", columnName)
+		}
+		i, columnDefine := tableInfo.GetColumnInfo(columnName)
+		if columnDefine == nil {
+			return nil, fmt.Errorf("column: %s does not exist", columnName)
+		}
+		if expr.CompareOp == token.EQUAL {
+			return func(row ast.Row) bool {
+				return row[i] == expr.LeftVal
+			}, nil
+		} else if expr.CompareOp == token.NOT_EQUAL {
+			return func(row ast.Row) bool {
+				return row[i] != expr.LeftVal
+			}, nil
+		} else {
+			return nil, fmt.Errorf("compare operator: %s is not supported", expr.CompareOp)
+		}
+	} else if expr.LeftVal.GetType() == ast.COLUMN {
+		columnName := expr.LeftVal.GetString()
+		if columnName == "" {
+			return nil, fmt.Errorf("column: %s does not exist", columnName)
+		}
+		i, columnDefine := tableInfo.GetColumnInfo(columnName)
+		if columnDefine == nil {
+			return nil, fmt.Errorf("column: %s does not exist", columnName)
+		}
+		if expr.CompareOp == token.EQUAL {
+			return func(row ast.Row) bool {
+				return row[i] == expr.RightVal
+			}, nil
+		} else if expr.CompareOp == token.NOT_EQUAL {
+			return func(row ast.Row) bool {
+				return row[i] != expr.RightVal
+			}, nil
+		} else {
+			return nil, fmt.Errorf("compare operator: %s is not supported", expr.CompareOp)
+		}
+	} else {
+		if expr.CompareOp == token.EQUAL {
+			return func(row ast.Row) bool {
+				return expr.LeftVal == expr.RightVal
+			}, nil
+		} else if expr.CompareOp == token.NOT_EQUAL {
+			return func(row ast.Row) bool {
+				return expr.LeftVal != expr.RightVal
+			}, nil
+		} else {
+			return nil, fmt.Errorf("compare operator: %s is not supported", expr.CompareOp)
+		}
+	}
+}
+
+// @description: primary key equal search
+func (dm *DataManager) pkEqSearch(rows chan<- ast.Row, index index.Index, expr ast.SQLSingleExpression) {
+	// search page Num
+	target := util.Uint32ToBytes(uint32(expr.RightVal.GetInt()))
+	// pageNums is a channel([]byte) to store page numbers
+	pageNums := index.Search(target)
+	// set wait group
+	wait := sync.WaitGroup{}
+	wait.Add(util.Max_Parraled_Threads)
+	// search pages in parallel
+	for i := 0; i < util.Max_Parraled_Threads; i++ {
+		go func() {
+			defer wait.Done()
+			for pageNo := range pageNums {
+				pageNum := util.BytesToUInt32(pageNo)
+				// get page
+				recordPage, err := dm.pager.GetPage(pageNum, pagedata.NewRecordData())
+				// get row data(page data)
+				if err != nil {
+					log.Errorf("get record page %d error: %s", pageNum, err)
+				}
+				pageData := recordPage.GetPageData().(*pagedata.RecordData)
+				// get row data
+				for i := range pageData.Rows() {
+					row := pageData.Rows()[i]
+					if row.GetPrimaryKey() == expr.RightVal {
+						rows <- row
+					}
+				}
+			}
+		}()
+	}
+	go func() {
+		// wait until all goroutines are done
+		wait.Wait()
+		close(rows)
+	}()
+}
+
+// @description: search in non primary index
+func (dm *DataManager) nPkEqSearch(rows chan<- ast.Row, npIndex index.Index, pIndex index.Index, expr ast.SQLSingleExpression) {
+	// search page Num
+	target := util.Uint32ToBytes(uint32(expr.RightVal.GetInt()))
+	// pkNums is a channel([]byte) to store page numbers
+	pkNums := npIndex.Search(target)
+	// set wait group
+	wait := sync.WaitGroup{}
+	wait.Add(util.Max_Parraled_Threads)
+	// search pages in parallel
+	for i := 0; i < util.Max_Parraled_Threads; i++ {
+		go func() {
+			defer wait.Done()
+			for pkNum := range pkNums {
+				// get page numbers through primary index
+				pageNumsChan := pIndex.Search(index.KeyType(pkNum))
+				for pageNum := range pageNumsChan {
+					pageNo := util.BytesToUInt32(pageNum)
+					// get page
+					recordPage, err := dm.pager.GetPage(pageNo, pagedata.NewRecordData())
+					// get row data(page data)
+					if err != nil {
+						log.Errorf("get record page %d error: %s", pageNo, err)
+					}
+					pageData := recordPage.GetPageData().(*pagedata.RecordData)
+					// get row data
+					for i := range pageData.Rows() {
+						row := pageData.Rows()[i]
+						if row.GetPrimaryKey() == expr.RightVal {
+							rows <- row
+						}
+					}
+				}
+
+			}
+		}()
+	}
+	go func() {
+		// wait until all goroutines are done
+		wait.Wait()
+		close(rows)
+	}()
+}
+
+// func (dm *)
