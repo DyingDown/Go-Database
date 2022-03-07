@@ -179,7 +179,7 @@ func (parser *Parser) Update() ast.SQLUpdateStatement {
 	return stmt
 }
 
-func (parser *Parser) getColumnDefine() ast.SQLColumnDefine {
+func (parser *Parser) getColumnDefine() *ast.SQLColumnDefine {
 	if parser.Lex.getCurrentToken().Types != token.ID {
 		panic("No column name")
 	}

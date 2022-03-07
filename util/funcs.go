@@ -1,7 +1,8 @@
 package util
 
 import (
-	"go-database/parser/ast"
+	"encoding/binary"
+	"math"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -18,14 +19,15 @@ func Uint32ToBytes(num uint32) []byte {
 	return []byte{byte(num), byte(num >> 8), byte(num >> 16), byte(num >> 24)}
 }
 
-// check if sql value type mathches column type
-func ValueTypeVsColumnType(valueType ast.SQLType, columnType ast.Types) bool {
-	if columnType == ast.CT_INT {
-		return valueType == ast.ST_INT
-	} else if columnType == ast.CT_FLOAT {
-		return valueType == ast.ST_FLOAT
-	} else if columnType == ast.CT_STRING {
-		return valueType == ast.ST_STRING
-	}
-	return false
+func Int64ToBytes(num int64) []byte {
+	bytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(bytes, uint64(num))
+	return bytes
+}
+
+func Float64ToBytes(num float64) []byte {
+	bits := math.Float64bits(num)
+	bytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(bytes, bits)
+	return bytes
 }

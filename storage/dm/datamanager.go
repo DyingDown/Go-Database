@@ -334,7 +334,7 @@ func (dm *DataManager) InsertData(insertStmt ast.SQLInsertStatement) error {
 	// set lens to nubmer of columns, and put columnDefine into the columns index
 	var columns []*ast.SQLColumnDefine
 	var columnIndexs []int
-	// if sql statement has columns
+	// if sql statement has columns and check is datatype matched
 	if len(insertStmt.ColumnNames) != 0 {
 		for i, CN := range insertStmt.ColumnNames {
 			if CN == "" {
@@ -348,7 +348,7 @@ func (dm *DataManager) InsertData(insertStmt ast.SQLInsertStatement) error {
 				return fmt.Errorf("column: %s is duplicated", CN)
 			}
 			// check is column type match value type
-			if util.ValueTypeVsColumnType(insertStmt.Values[i].GetType(), columnDefine.ColumnType) {
+			if ast.ValueTypeVsColumnType(insertStmt.Values[i].GetType(), columnDefine.ColumnType) {
 				columns = append(columns, columnDefine)
 				columnIndexs = append(columnIndexs, index)
 			} else {
@@ -373,5 +373,18 @@ func (dm *DataManager) InsertData(insertStmt ast.SQLInsertStatement) error {
 	row.SetRowData(columnIndexs, insertStmt.Values)
 	// add row to page
 	recordPageData.AppendData(row)
+
+	// update index
+	for i := range columns {
+		index := columns[i].Index
+		if index != nil {
+			// if column is primary key
+			if columnIndexs[i] == 0 {
+				index.Insert(row[0].Row(), util.Uint32ToBytes(recordPage.PageNo))
+			} else {
+				index.Insert(row[columnIndexs[i]].Row(), row[0].Row())
+			}
+		}
+	}
 	return nil
 }
