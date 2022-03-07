@@ -115,3 +115,11 @@ func (page *Page) Size() int {
 func (page *Page) GetPageData() PageData {
 	return page.pageData
 }
+
+func (page *Page) GetNextPageNo() uint32 {
+	return page.nextPageNo
+}
+
+func (page *Page) GetPrevPageNo() uint32 {
+	return page.prevPageNo
+}

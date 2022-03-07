@@ -48,15 +48,14 @@ func (dm *DataManager) SelectData(st ast.SQLSelectStatement) (<-chan ast.Row, er
 	}
 	// if there is where conditions
 	if st.Expr.IsWhereExists() {
-		// there may be many conditions
-		for i := range st.Expr.Exprs {
+		// TODO: there may be many conditions
+		// for i := range st.Expr.Exprs {
+		for i := 0; i < 1; i++ {
 			expr := st.Expr.Exprs[i]
-			if expr.IsEqual() {
-				dm.eqSearch(rows, expr, tableInfo)
-			} else if expr.NotEqual() {
-				dm.nEqSearch(rows, expr, tableInfo)
+			if expr.NotEqual() {
+				dm.notEqualSearch(rows, expr, tableInfo)
 			} else {
-				dm.rangeSearch(rows, expr, tableInfo)
+				dm.simpleSearch(rows, expr, tableInfo)
 			}
 		}
 	} else {
@@ -66,7 +65,7 @@ func (dm *DataManager) SelectData(st ast.SQLSelectStatement) (<-chan ast.Row, er
 	return rows, nil
 }
 
-func (dm *DataManager) eqSearch(rows chan<- ast.Row, expr ast.SQLSingleExpression, tableInfo *pagedata.TableInfo) {
+func (dm *DataManager) simpleSearch(rows chan<- ast.Row, expr ast.SQLSingleExpression, tableInfo *pagedata.TableInfo) {
 	if expr.LeftVal.GetType() == ast.COLUMN {
 		// get column name
 		columnName := expr.LeftVal.GetString()
@@ -76,7 +75,7 @@ func (dm *DataManager) eqSearch(rows chan<- ast.Row, expr ast.SQLSingleExpressio
 			return
 		}
 		// more info about this column
-		columnDefine := tableInfo.GetColumnInfo(columnName)
+		_, columnDefine := tableInfo.GetColumnInfo(columnName)
 		if columnDefine == nil {
 			// close
 			close(rows)
@@ -84,10 +83,12 @@ func (dm *DataManager) eqSearch(rows chan<- ast.Row, expr ast.SQLSingleExpressio
 			return
 		}
 		index := columnDefine.Index
+		// if there is no index, scan all pages
 		if index == nil {
 			dm.scanTable(rows, tableInfo, expr)
 			return
 		}
+		// if the target column is primary key column
 		if tableInfo.GetPrimaryKey() == columnName {
 			dm.pkEqSearch(rows, index, expr)
 		} else {
@@ -121,12 +122,8 @@ func (dm *DataManager) eqSearch(rows chan<- ast.Row, expr ast.SQLSingleExpressio
 }
 
 // @description: not equal search
-func (dm *DataManager) nEqSearch(rows chan<- ast.Row, expr ast.SQLSingleExpression, tableInfo *pagedata.TableInfo) {
-
-}
-
-func (dm *DataManager) rangeSearch(rows chan<- ast.Row, expr ast.SQLSingleExpression, tableInfo *pagedata.TableInfo) {
-
+func (dm *DataManager) notEqualSearch(rows chan<- ast.Row, expr ast.SQLSingleExpression, tableInfo *pagedata.TableInfo) {
+	dm.scanTable(rows, tableInfo, expr)
 }
 
 // @description: scan the whole table
@@ -134,13 +131,34 @@ func (dm *DataManager) rangeSearch(rows chan<- ast.Row, expr ast.SQLSingleExpres
 // For each page, scan all rows to find satisfied rows
 func (dm *DataManager) scanTable(rows chan<- ast.Row, tableInfo *pagedata.TableInfo, expr ast.SQLSingleExpression) {
 	// find which rows to compare
-
+	whereFunc, err := dm.GetRowFilter(tableInfo, expr)
+	if err != nil {
+		close(rows)
+		return
+	}
+	// scan all pages
+	for i := tableInfo.FirstPage; i != 0; {
+		page, err := dm.pager.GetPage(i, pagedata.NewRecordData())
+		if err == nil {
+			close(rows)
+			return
+		}
+		// scan rows in one page
+		dataRows := page.GetPageData().(*pagedata.RecordData).Rows() // get all rows
+		for _, j := range dataRows {
+			if whereFunc(j) {
+				rows <- j
+			}
+		}
+		i = page.GetNextPageNo()
+	}
+	close(rows)
 }
 
 // @description:  receives a sql expression and returns a function
 // @param: sql expression
 // @return: a function that can judge a row is satisfied or not
-func (dm *DataManager) getRowFilter(tableInfo *pagedata.TableInfo, expr ast.SQLSingleExpression) (func(row ast.Row) bool, error) {
+func (dm *DataManager) GetRowFilter(tableInfo *pagedata.TableInfo, expr ast.SQLSingleExpression) (func(row ast.Row) bool, error) {
 	// if the both sides are columns
 	if expr.LeftVal.GetType() == ast.COLUMN && expr.RightVal.GetType() == ast.COLUMN {
 		leftColumnName := expr.LeftVal.GetString()
@@ -165,7 +183,7 @@ func (dm *DataManager) getRowFilter(tableInfo *pagedata.TableInfo, expr ast.SQLS
 					return row[leftIndex] != row[rightIndex]
 				}, nil
 			} else {
-				return nil, fmt.Errorf("compare operator: %s is not supported", expr.CompareOp)
+				return nil, fmt.Errorf("compare operator: %v is not supported", expr.CompareOp)
 			}
 		}
 	} else if expr.RightVal.GetType() == ast.COLUMN {
@@ -186,7 +204,7 @@ func (dm *DataManager) getRowFilter(tableInfo *pagedata.TableInfo, expr ast.SQLS
 				return row[i] != expr.LeftVal
 			}, nil
 		} else {
-			return nil, fmt.Errorf("compare operator: %s is not supported", expr.CompareOp)
+			return nil, fmt.Errorf("compare operator: %v is not supported", expr.CompareOp)
 		}
 	} else if expr.LeftVal.GetType() == ast.COLUMN {
 		columnName := expr.LeftVal.GetString()
@@ -206,7 +224,7 @@ func (dm *DataManager) getRowFilter(tableInfo *pagedata.TableInfo, expr ast.SQLS
 				return row[i] != expr.RightVal
 			}, nil
 		} else {
-			return nil, fmt.Errorf("compare operator: %s is not supported", expr.CompareOp)
+			return nil, fmt.Errorf("compare operator: %v is not supported", expr.CompareOp)
 		}
 	} else {
 		if expr.CompareOp == token.EQUAL {
@@ -218,7 +236,7 @@ func (dm *DataManager) getRowFilter(tableInfo *pagedata.TableInfo, expr ast.SQLS
 				return expr.LeftVal != expr.RightVal
 			}, nil
 		} else {
-			return nil, fmt.Errorf("compare operator: %s is not supported", expr.CompareOp)
+			return nil, fmt.Errorf("compare operator: %v is not supported", expr.CompareOp)
 		}
 	}
 }
@@ -305,5 +323,3 @@ func (dm *DataManager) nPkEqSearch(rows chan<- ast.Row, npIndex index.Index, pIn
 		close(rows)
 	}()
 }
-
-// func (dm *)
