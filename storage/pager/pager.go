@@ -98,7 +98,7 @@ func (pager *Pager) CreatePage(data PageData) *Page {
 	return page
 }
 
-// @description: select a usable page
+// @description: select an usable page
 // select the last page of the table
 // if the last page's free space is not enough to store the new data, then create a new page
 func (pager *Pager) SelectPage(dataSize int, tableName string) (page *Page, err error) {

@@ -31,8 +31,8 @@ func (record *RecordData) Decode(r io.Reader) error {
 }
 
 // @description: add new rows into table
-func (record *RecordData) AppendData(rows ast.Row) {
-	record.rows = append(record.rows, rows)
+func (record *RecordData) AppendData(row ast.Row) {
+	record.rows = append(record.rows, row)
 }
 
 func (record *RecordData) Size() int {
@@ -41,4 +41,8 @@ func (record *RecordData) Size() int {
 
 func (record *RecordData) Rows() []ast.Row {
 	return record.rows
+}
+
+func (record *RecordData) NewRow() ast.Row {
+	return make(ast.Row, len(record.rows[0]))
 }

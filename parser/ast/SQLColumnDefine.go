@@ -17,7 +17,7 @@ var StringToType = map[string]Types{"int": CT_INT, "float": CT_FLOAT, "string": 
 type SQLColumnDefine struct {
 	ColumnName string
 	ColumnType Types
-	len        int
+	Len        int
 	Index      index.Index
 	tableId    uint32
 }
@@ -26,6 +26,6 @@ func NewSQLColumnDefine(columnName string, columnType Types) *SQLColumnDefine {
 	return &SQLColumnDefine{
 		ColumnName: columnName,
 		ColumnType: columnType,
-		len:        500,
+		Len:        500,
 	}
 }

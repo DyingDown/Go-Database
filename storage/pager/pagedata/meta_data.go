@@ -58,6 +58,9 @@ func (tableInfo *TableInfo) GetColumnInfo(columnName string) (int, *ast.SQLColum
 	return -1, nil
 }
 
+func (tableInfo *TableInfo) GetColumns() []*ast.SQLColumnDefine {
+	return tableInfo.columns
+}
 func (tableInfo *TableInfo) GetPrimaryKey() string {
 	return tableInfo.columns[tableInfo.PrimaryKey].ColumnName
 }

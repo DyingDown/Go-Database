@@ -66,7 +66,7 @@ func (dm *DataManager) SelectData(st ast.SQLSelectStatement) (<-chan ast.Row, er
 }
 
 func (dm *DataManager) simpleSearch(rows chan<- ast.Row, expr ast.SQLSingleExpression, tableInfo *pagedata.TableInfo) {
-	if expr.LeftVal.GetType() == ast.COLUMN {
+	if expr.LeftVal.GetType() == ast.ST_COLUMN {
 		// get column name
 		columnName := expr.LeftVal.GetString()
 		if columnName == "" {
@@ -160,7 +160,7 @@ func (dm *DataManager) scanTable(rows chan<- ast.Row, tableInfo *pagedata.TableI
 // @return: a function that can judge a row is satisfied or not
 func (dm *DataManager) GetRowFilter(tableInfo *pagedata.TableInfo, expr ast.SQLSingleExpression) (func(row ast.Row) bool, error) {
 	// if the both sides are columns
-	if expr.LeftVal.GetType() == ast.COLUMN && expr.RightVal.GetType() == ast.COLUMN {
+	if expr.LeftVal.GetType() == ast.ST_COLUMN && expr.RightVal.GetType() == ast.ST_COLUMN {
 		leftColumnName := expr.LeftVal.GetString()
 		rightColumName := expr.RightVal.GetString()
 		if leftColumnName == "" || rightColumName == "" {
@@ -186,7 +186,7 @@ func (dm *DataManager) GetRowFilter(tableInfo *pagedata.TableInfo, expr ast.SQLS
 				return nil, fmt.Errorf("compare operator: %v is not supported", expr.CompareOp)
 			}
 		}
-	} else if expr.RightVal.GetType() == ast.COLUMN {
+	} else if expr.RightVal.GetType() == ast.ST_COLUMN {
 		columnName := expr.RightVal.GetString()
 		if columnName == "" {
 			return nil, fmt.Errorf("column: %s does not exist", columnName)
@@ -206,7 +206,7 @@ func (dm *DataManager) GetRowFilter(tableInfo *pagedata.TableInfo, expr ast.SQLS
 		} else {
 			return nil, fmt.Errorf("compare operator: %v is not supported", expr.CompareOp)
 		}
-	} else if expr.LeftVal.GetType() == ast.COLUMN {
+	} else if expr.LeftVal.GetType() == ast.ST_COLUMN {
 		columnName := expr.LeftVal.GetString()
 		if columnName == "" {
 			return nil, fmt.Errorf("column: %s does not exist", columnName)
@@ -322,4 +322,56 @@ func (dm *DataManager) nPkEqSearch(rows chan<- ast.Row, npIndex index.Index, pIn
 		wait.Wait()
 		close(rows)
 	}()
+}
+
+func (dm *DataManager) InsertData(insertStmt ast.SQLInsertStatement) error {
+	// get table
+	tableInfo := dm.pager.GetMetaData().GetTableInfo(insertStmt.TableName)
+	if tableInfo == nil {
+		return fmt.Errorf("table: %s does not exist", insertStmt.TableName)
+	}
+	// get table columns
+	// set lens to nubmer of columns, and put columnDefine into the columns index
+	var columns []*ast.SQLColumnDefine
+	var columnIndexs []int
+	// if sql statement has columns
+	if len(insertStmt.ColumnNames) != 0 {
+		for i, CN := range insertStmt.ColumnNames {
+			if CN == "" {
+				return fmt.Errorf("doesn't specify a column name")
+			}
+			index, columnDefine := tableInfo.GetColumnInfo(CN)
+			if columnDefine == nil {
+				return fmt.Errorf("column: %s does not exist", CN)
+			}
+			if columns[index] != nil {
+				return fmt.Errorf("column: %s is duplicated", CN)
+			}
+			// check is column type match value type
+			if util.ValueTypeVsColumnType(insertStmt.Values[i].GetType(), columnDefine.ColumnType) {
+				columns = append(columns, columnDefine)
+				columnIndexs = append(columnIndexs, index)
+			} else {
+				return fmt.Errorf("column: %s type does not match value type", CN)
+			}
+		}
+	} else {
+		columns = tableInfo.GetColumns()
+		for i := range columns {
+			columnIndexs = append(columnIndexs, i)
+		}
+	}
+	// find a suitable page(last page or a new page) to insert new row
+	recordPage, err := dm.pager.SelectPage(int(insertStmt.ValueSize()), insertStmt.TableName)
+	if err != nil {
+		return fmt.Errorf("select page error: %s", err)
+	}
+	recordPageData := recordPage.GetPageData().(*pagedata.RecordData)
+	// create a new row
+	row := recordPageData.NewRow()
+	// write data to row
+	row.SetRowData(columnIndexs, insertStmt.Values)
+	// add row to page
+	recordPageData.AppendData(row)
+	return nil
 }
