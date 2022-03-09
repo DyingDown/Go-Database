@@ -7,6 +7,8 @@
  *	Page also have some meta information to Uniquely identify page or to help select page
  *  The size of the page is const, and it's defined in uil package
  *	Page is controled directly by pager
+ *
+ *	LSN(long sequence number): Identifies where a particular log file is recorded in the log file
  */
 
 package pager
@@ -16,6 +18,7 @@ import (
 	"encoding/binary"
 	"go-database/util"
 	"io"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -44,7 +47,9 @@ type Page struct {
 	prevPageNo uint32
 	nextPageNo uint32
 	dirty      bool
+	LSN        int64    // long sequence number
 	pageData   PageData // content of page
+	lock       sync.RWMutex
 }
 
 func NewPage(pageNo uint32, data PageData) *Page {
@@ -57,11 +62,15 @@ func NewPage(pageNo uint32, data PageData) *Page {
 
 // @description: change *page to bytes
 func (page *Page) Encode() []byte {
+	page.lock.Lock()
+	defer page.lock.Unlock()
 	buf := bytes.NewBuffer(make([]byte, util.PageSize))
 	binary.Write(buf, binary.BigEndian, page.pageType)
 	binary.Write(buf, binary.BigEndian, page.PageNo)
 	binary.Write(buf, binary.BigEndian, page.prevPageNo)
 	binary.Write(buf, binary.BigEndian, page.nextPageNo)
+	binary.Write(buf, binary.BigEndian, page.dirty)
+	binary.Write(buf, binary.BigEndian, page.LSN)
 	// page data needs special encode for different data types
 	dataBytes := page.pageData.Encode()
 	buf.Write(dataBytes)
@@ -73,6 +82,8 @@ func (page *Page) Encode() []byte {
 
 // @description: change bytes to *page
 func (page *Page) Decode(r io.Reader, pageData PageData) error {
+	page.lock.Lock()
+	defer page.lock.Unlock()
 	// reading order should be the order they are defined in the prev code
 	err := binary.Read(r, binary.BigEndian, &page.pageType)
 	if err != nil {
@@ -96,6 +107,10 @@ func (page *Page) Decode(r io.Reader, pageData PageData) error {
 	if err != nil {
 		log.Errorf("fail to get page status: %v", err)
 	}
+	err = binary.Read(r, binary.BigEndian, &page.LSN)
+	if err != nil {
+		log.Errorf("fail to get page LSN: %v", err)
+	}
 	page.pageData = pageData
 	err = page.pageData.Decode(r)
 	if err != nil {
@@ -107,8 +122,8 @@ func (page *Page) Decode(r io.Reader, pageData PageData) error {
 // @return: how many bytes a page has used
 func (page *Page) Size() int {
 	// pageType + pageNo + prevePageNo + nextPageNo + dirty + pageData
-	// uint8 + uint32 + uint32 + uint32 + bool + pageData
-	return 1 + 4 + 4 + 4 + 1 + page.pageData.Size()
+	// uint8 + uint32 + uint32 + uint32 + bool + int64 + pageData
+	return 1 + 4 + 4 + 4 + 1 + 8 + page.pageData.Size()
 }
 
 // @description: get page data

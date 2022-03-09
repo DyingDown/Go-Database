@@ -21,7 +21,7 @@ type BPlusTree struct {
 }
 
 func NewBPlusTree(pager *pager.Pager, keySize uint8, valueSize uint8) *BPlusTree {
-	order := uint16(util.PageSize-16) / (uint16(keySize + valueSize))
+	order := uint16(util.ActuralPageSize) / (uint16(keySize + valueSize))
 	rootNode := NewBPlusTreeNode(order, true)
 	rootPage := pager.CreatePage(rootNode)
 	rootNode.CurrentAddr = rootPage.PageNo

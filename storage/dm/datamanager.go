@@ -249,9 +249,9 @@ func (dm *DataManager) pkEqSearch(rows chan<- ast.Row, index index.Index, expr a
 	pageNums := index.Search(target)
 	// set wait group
 	wait := sync.WaitGroup{}
-	wait.Add(util.Max_Parraled_Threads)
+	wait.Add(util.Max_Paralled_Threads)
 	// search pages in parallel
-	for i := 0; i < util.Max_Parraled_Threads; i++ {
+	for i := 0; i < util.Max_Paralled_Threads; i++ {
 		go func() {
 			defer wait.Done()
 			for pageNo := range pageNums {
@@ -288,9 +288,9 @@ func (dm *DataManager) nPkEqSearch(rows chan<- ast.Row, npIndex index.Index, pIn
 	pkNums := npIndex.Search(target)
 	// set wait group
 	wait := sync.WaitGroup{}
-	wait.Add(util.Max_Parraled_Threads)
+	wait.Add(util.Max_Paralled_Threads)
 	// search pages in parallel
-	for i := 0; i < util.Max_Parraled_Threads; i++ {
+	for i := 0; i < util.Max_Paralled_Threads; i++ {
 		go func() {
 			defer wait.Done()
 			for pkNum := range pkNums {
