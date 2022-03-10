@@ -34,7 +34,7 @@ type DoubleWrite struct {
 	diskLock   sync.Mutex
 }
 
-func OpenDM(path string, pagefile *os.File) *DoubleWrite {
+func Open(path string, pagefile *os.File) *DoubleWrite {
 	buffer, err := os.OpenFile(path+"_buffer", os.O_RDWR, 0666)
 	if err != nil {
 		panic("fail open file " + path + "_buffer")
@@ -46,11 +46,11 @@ func OpenDM(path string, pagefile *os.File) *DoubleWrite {
 	}
 }
 
-func CreateDM(path string, pagefile *os.File) *DoubleWrite {
+func Create(path string, pagefile *os.File) *DoubleWrite {
 	// if file already exists
 	if status, err := os.Stat(path + "_buffer"); err == nil && status.Size() != 0 {
 		log.Fatal("DoubleWrite buffer file already exists")
-		return OpenDM(path, pagefile)
+		return Open(path, pagefile)
 	}
 	buffer, err := os.OpenFile(path+"_buffer", os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
