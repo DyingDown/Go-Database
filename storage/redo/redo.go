@@ -13,6 +13,7 @@ package redo
 
 import (
 	"bytes"
+	"go-database/storage/redo/redolog"
 	"io"
 	"log"
 	"os"
@@ -57,7 +58,7 @@ func Open(path string, pagefile *os.File) *Redo {
 }
 
 // @description: append one operation to log
-func (redo *Redo) Append(log Log, w io.Writer) error {
+func (redo *Redo) Append(log redolog.Log, w io.Writer) error {
 	logBytes := log.Encode()
 	// calc and update lsn
 	log.LSN(redo.LSN)
@@ -72,7 +73,7 @@ func (redo *Redo) Append(log Log, w io.Writer) error {
 
 // @description: Write a group of log to log file
 // @return: max LSN
-func (redo *Redo) Write(log []Log) error {
+func (redo *Redo) Write(log []redolog.Log) (int64, error) {
 	// write to log file
 	redo.lock.Lock()
 	defer redo.lock.Unlock()
@@ -80,8 +81,16 @@ func (redo *Redo) Write(log []Log) error {
 	for _, log := range log {
 		err := redo.Append(log, buffer)
 		if err != nil {
-			return err
+			return 0, err
 		}
 	}
-	return nil
+	_, err := redo.logFile.Write(buffer.Bytes())
+	if err != nil {
+		return 0, err
+	}
+	err = redo.logFile.Sync()
+	if err != nil {
+		return 0, err
+	}
+	return redo.LSN, nil
 }

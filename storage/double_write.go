@@ -57,6 +57,7 @@ func Create(path string, pagefile *os.File) *DoubleWrite {
 		panic("fail create file " + path + "_buffer")
 	}
 	buffer.Write(NULL_Buffer)
+	buffer.Sync()
 	return &DoubleWrite{
 		PageBuffer: buffer,
 		PageFile:   pagefile,
@@ -109,6 +110,7 @@ func (dw *DoubleWrite) Flush() {
 	if err != nil {
 		log.Fatal("fail to write to double write buffer")
 	}
+	dw.PageBuffer.Sync()
 
 	// write changed pages to database file
 	dw.diskLock.Lock()
@@ -122,6 +124,7 @@ func (dw *DoubleWrite) Flush() {
 		if err != nil {
 			log.Fatal("fail to write to page " + string(k))
 		}
+		dw.PageFile.Sync()
 		lsn := util.LSN(v)
 		if lsn > maxLSN {
 			maxLSN = lsn
@@ -131,6 +134,7 @@ func (dw *DoubleWrite) Flush() {
 	// empty the disk buffer file
 	dw.PageBuffer.Seek(0, 0)
 	dw.PageBuffer.Write(NULL_Buffer)
+	dw.PageBuffer.Sync()
 
 	// TODO: update check point
 }
@@ -160,5 +164,6 @@ func (dw *DoubleWrite) Recover() {
 		pageNo := util.BytesToUInt32(page[1:5])
 		dw.PageFile.Seek(int64(pageNo*util.PageSize), 0)
 		dw.PageFile.Write(page)
+		dw.PageFile.Sync()
 	}
 }
