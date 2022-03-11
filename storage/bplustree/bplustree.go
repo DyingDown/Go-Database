@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go-database/storage/index"
 	"go-database/storage/pager"
+	"go-database/storage/recovery"
 	"go-database/util"
 
 	log "github.com/sirupsen/logrus"
@@ -17,29 +18,35 @@ type BPlusTree struct {
 	KeySize   uint8
 	ValueSize uint8
 	order     uint16
+	TableId   uint32
+	ColumnId  uint32
 	pager     *pager.Pager // this will not store in file
 }
 
-func NewBPlusTree(pager *pager.Pager, keySize uint8, valueSize uint8) *BPlusTree {
-	order := uint16(util.ActuralPageSize) / (uint16(keySize + valueSize))
-	rootNode := NewBPlusTreeNode(order, true)
+func NewBPlusTree(pager *pager.Pager, keySize uint8, valueSize uint8, tableId uint32, columnId uint32) *BPlusTree {
+	newTree := &BPlusTree{}
+	newTree.order = uint16(util.ActuralPageSize) / (uint16(keySize + valueSize))
+	rootNode := NewBPlusTreeNode(newTree.order, true)
 	rootPage := pager.CreatePage(rootNode)
 	rootNode.CurrentAddr = rootPage.PageNo
 	rootNode.parent = 0
 	rootNode.LeftAddr = 0
 	rootNode.RightAddr = 0
 	rootNode.Num = 0
-	rootNode.Keys = make([]index.KeyType, order)
-	rootNode.Children = make([]index.ValueType, order+1)
-	return &BPlusTree{
-		Root:      rootNode.CurrentAddr,
-		pager:     pager,
-		FirstLeaf: rootNode.CurrentAddr,
-		LastLeaf:  rootNode.CurrentAddr,
-		KeySize:   keySize,
-		ValueSize: valueSize,
-		order:     order,
-	}
+	rootNode.Keys = make([]index.KeyType, newTree.order)
+	rootNode.Children = make([]index.ValueType, newTree.order+1)
+
+	newTree.Root = rootNode.CurrentAddr
+	newTree.FirstLeaf = rootNode.CurrentAddr
+	newTree.LastLeaf = rootNode.CurrentAddr
+	newTree.KeySize = keySize
+	newTree.ValueSize = valueSize
+	newTree.pager = pager
+	newTree.TableId = tableId
+	newTree.ColumnId = columnId
+	// flush again
+	pager.WritePage(rootPage)
+	return newTree
 }
 
 // Node is pageData, a part of Page
@@ -133,6 +140,17 @@ func (bplustree *BPlusTree) Insert(key index.KeyType, value index.ValueType) err
 	// search again to find insert position
 	node, index := bplustree.searchLowerInTree(key)
 	node.insertInNode(key, value, index)
+
+	// get node page in order to get page's log
+	nodePage, err := bplustree.pager.GetPage(node.CurrentAddr, node)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// record log
+	log := new(recovery.GeneralLog).ToNodeInsert()
+	log.SetValue(bplustree.TableId, bplustree.ColumnId, node.CurrentAddr, key, value)
+	nodePage.Logs = append(nodePage.Logs, log)
+
 	if node.Num >= bplustree.order {
 		bplustree.splitLeaf(node)
 	}

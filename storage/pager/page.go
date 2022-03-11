@@ -16,6 +16,7 @@ package pager
 import (
 	"bytes"
 	"encoding/binary"
+	"go-database/storage/recovery"
 	"go-database/util"
 	"io"
 	"sync"
@@ -50,6 +51,7 @@ type Page struct {
 	LSN        int64    // long sequence number
 	pageData   PageData // content of page
 	lock       sync.RWMutex
+	Logs       []recovery.Log
 }
 
 func NewPage(pageNo uint32, data PageData) *Page {

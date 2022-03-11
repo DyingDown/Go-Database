@@ -20,10 +20,11 @@ const (
 	RECORD_INSERT_ROW
 	RECORD_DPDATE_XMAX
 	META_UPDATE
+	CREATE_PAGE
 )
 
 type Log interface {
 	Encode() []byte
 	Decode(r io.Reader)
-	LSN(int64) int64
+	LSN() int64
 }
