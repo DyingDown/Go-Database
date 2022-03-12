@@ -37,3 +37,7 @@ func (log *CreatePageLog) Decode(r io.Reader) error {
 func (log *CreatePageLog) LSN() int64 {
 	return log.lsn
 }
+
+func (log *CreatePageLog) SetLSN(lsn int64) {
+	log.lsn = lsn
+}

@@ -27,4 +27,5 @@ type Log interface {
 	Encode() []byte
 	Decode(r io.Reader)
 	LSN() int64
+	SetLSN(int64)
 }

@@ -8,11 +8,13 @@ import (
 )
 
 type RecordData struct {
-	rows []ast.Row
+	rows []*ast.Row
 }
 
 func NewRecordData() *RecordData {
-	return &RecordData{}
+	return &RecordData{
+		rows: make([]*ast.Row, 0),
+	}
 }
 
 func (record *RecordData) Encode() []byte {
@@ -31,7 +33,7 @@ func (record *RecordData) Decode(r io.Reader) error {
 }
 
 // @description: add new rows into table
-func (record *RecordData) AppendData(row ast.Row) {
+func (record *RecordData) AppendData(row *ast.Row) {
 	record.rows = append(record.rows, row)
 }
 
@@ -39,10 +41,6 @@ func (record *RecordData) Size() int {
 	return len(record.Encode())
 }
 
-func (record *RecordData) Rows() []ast.Row {
+func (record *RecordData) Rows() []*ast.Row {
 	return record.rows
-}
-
-func (record *RecordData) NewRow() ast.Row {
-	return make(ast.Row, len(record.rows[0]))
 }

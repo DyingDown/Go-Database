@@ -3,7 +3,7 @@ package ast
 import "go-database/parser/token"
 
 type SQLExpression struct {
-	Exprs []SQLSingleExpression
+	Exprs []*SQLSingleExpression
 	Ops   []token.TokenType
 }
 

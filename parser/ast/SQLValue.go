@@ -1,14 +1,17 @@
 package ast
 
 import (
-	"bytes"
-	"encoding/gob"
-	"go-database/parser/token"
+	"encoding/binary"
 	"go-database/util"
-	"strconv"
+	"io"
 )
 
 type SQLType int
+
+type SQLInt int64
+type SQLFloat float64
+type SQLString string
+type SQLColumn string
 
 const (
 	ST_INT SQLType = iota
@@ -18,76 +21,92 @@ const (
 	ST_ILLEGAL
 )
 
-type SQLValue struct {
-	Value     string
-	ValueType SQLType
+type SQLValue interface {
+	Raw() []byte
+	GetType() SQLType
+	Encode(w io.Writer)
+	Decode(r io.Reader)
 }
 
-func NewSQLValue(val token.Token) SQLValue {
-	if val.Types == token.INT {
-		return SQLValue{val.Value, ST_INT}
-	} else if val.Types == token.FLOAT {
-		return SQLValue{val.Value, ST_FLOAT}
-	} else if val.Types == token.STRING {
-		return SQLValue{val.Value, ST_STRING}
-	} else if val.Types == token.ID {
-		return SQLValue{val.Value, ST_COLUMN}
-	} else {
-		return SQLValue{val.Value, ST_ILLEGAL}
-	}
+// INT
+func (sqlint *SQLInt) Raw() []byte {
+	return util.Int64ToBytes(int64(*sqlint))
 }
 
-func (sqlvalue *SQLValue) GetInt() int64 {
-	num, _ := strconv.ParseInt(sqlvalue.Value, 10, 64)
-	return num
+func (sqlint *SQLInt) GetType() SQLType {
+	return ST_INT
 }
 
-func (sqlvalue *SQLValue) GetFloat() float64 {
-	num, _ := strconv.ParseFloat(sqlvalue.Value, 64)
-	return num
+func (sqlint *SQLInt) Encode(w io.Writer) {
+	binary.Write(w, binary.BigEndian, ST_INT)
+	binary.Write(w, binary.BigEndian, sqlint)
 }
 
-func (sqlvalue *SQLValue) GetString() string {
-	if sqlvalue.ValueType == ST_STRING {
-		return sqlvalue.Value
-	}
-	return ""
+func (sqlint *SQLInt) Decode(r io.Reader) {
+	binary.Read(r, binary.BigEndian, sqlint)
 }
 
-func (sqlvalue *SQLValue) GetType() SQLType {
-	return sqlvalue.ValueType
+// FLOAT
+func (sqlfloat *SQLFloat) Raw() []byte {
+	return util.Float64ToBytes(float64(*sqlfloat))
 }
 
-func (sqlvalue *SQLValue) Size() uint32 {
-	buff := bytes.NewBuffer([]byte{})
-	encoder := gob.NewEncoder(buff)
-	encoder.Encode(sqlvalue)
-	return uint32(buff.Len())
+func (sqlfloat *SQLFloat) GetType() SQLType {
+	return ST_FLOAT
 }
 
-func (sqlvalue *SQLValue) Row() []byte {
-	if sqlvalue.ValueType == ST_INT {
-		n := sqlvalue.GetInt()
-		return util.Int64ToBytes(n)
-	} else if sqlvalue.ValueType == ST_FLOAT {
-		n := sqlvalue.GetFloat()
-		return util.Float64ToBytes(n)
-	} else if sqlvalue.ValueType == ST_STRING {
-		return []byte(sqlvalue.Value)[:util.BPlusTreeKeyLen+1]
-	}
-	return make([]byte, 8)
+func (sqlfloat *SQLFloat) Encode(w io.Writer) {
+	binary.Write(w, binary.BigEndian, ST_FLOAT)
+	binary.Write(w, binary.BigEndian, sqlfloat)
 }
 
-type Row []SQLValue
-
-func (row *Row) GetPrimaryKey() SQLValue {
-	return (*row)[0]
+func (sqlfloat *SQLFloat) Decode(r io.Reader) {
+	binary.Read(r, binary.BigEndian, sqlfloat)
 }
 
-func (row *Row) SetRowData(indexs []int, values []SQLValue) {
-	for _, i := range indexs {
-		(*row)[i] = values[i]
-	}
+// STRING
+func (sqlstring *SQLString) Raw() []byte {
+	return []byte(*sqlstring)
+}
+
+func (sqlstring *SQLString) GetType() SQLType {
+	return ST_STRING
+}
+
+func (sqlstring *SQLString) Encode(w io.Writer) {
+	binary.Write(w, binary.BigEndian, ST_STRING)
+	binary.Write(w, binary.BigEndian, uint16(len(*sqlstring)))
+	w.Write([]byte(*sqlstring))
+}
+
+func (sqlstring *SQLString) Decode(r io.Reader) {
+	var size uint16
+	binary.Read(r, binary.BigEndian, size)
+	buff := make([]byte, size)
+	r.Read(buff)
+	*sqlstring = SQLString(buff)
+}
+
+// COLUMN
+func (sqlcolumn *SQLColumn) Raw() []byte {
+	return []byte(*sqlcolumn)
+}
+
+func (sqlcolumn *SQLColumn) GetType() SQLType {
+	return ST_COLUMN
+}
+
+func (sqlcol *SQLColumn) Encode(w io.Writer) {
+	binary.Write(w, binary.BigEndian, ST_COLUMN)
+	binary.Write(w, binary.BigEndian, sqlcol)
+}
+
+func (sqlcol *SQLColumn) Decode(r io.Reader) {
+	var size uint16
+	binary.Read(r, binary.BigEndian, size)
+	buff := make([]byte, size)
+	r.Read(buff)
+	*sqlcol = SQLColumn(buff)
 }
 
 // check if sql value type mathches column type

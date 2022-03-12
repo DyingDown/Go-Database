@@ -46,6 +46,10 @@ func (log *NodeInsertValueLog) LSN() int64 {
 	return log.lsn
 }
 
+func (log *NodeInsertValueLog) SetLSN(lsn int64) {
+	log.lsn = lsn
+}
+
 func (log *NodeInsertValueLog) SetValue(tableId uint32, columnId uint32, pageNumber uint32, key, value []byte) {
 	log.tableId = tableId
 	log.columnId = columnId

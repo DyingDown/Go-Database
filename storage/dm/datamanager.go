@@ -38,8 +38,8 @@ func OpenDM(path string) *DataManager {
 }
 
 // @description: selet rows according to sql where statement
-func (dm *DataManager) SelectData(st ast.SQLSelectStatement) (<-chan ast.Row, error) {
-	rows := make(chan ast.Row, 100)
+func (dm *DataManager) SelectData(st *ast.SQLSelectStatement) (<-chan *ast.Row, error) {
+	rows := make(chan *ast.Row, 100)
 	// get table info
 	tableInfo := dm.pager.GetMetaData().GetTableInfo(st.Table)
 	if tableInfo == nil {
@@ -60,15 +60,15 @@ func (dm *DataManager) SelectData(st ast.SQLSelectStatement) (<-chan ast.Row, er
 		}
 	} else {
 		// if no conditions, return the whole table
-		dm.scanTable(rows, tableInfo, ast.SQLSingleExpression{})
+		dm.scanTable(rows, tableInfo, new(ast.SQLSingleExpression))
 	}
 	return rows, nil
 }
 
-func (dm *DataManager) simpleSearch(rows chan<- ast.Row, expr ast.SQLSingleExpression, tableInfo *pagedata.TableInfo) {
+func (dm *DataManager) simpleSearch(rows chan<- *ast.Row, expr *ast.SQLSingleExpression, tableInfo *pagedata.TableInfo) {
 	if expr.LeftVal.GetType() == ast.ST_COLUMN {
 		// get column name
-		columnName := expr.LeftVal.GetString()
+		columnName := string(*expr.LeftVal.(*ast.SQLColumn))
 		if columnName == "" {
 			// TODO: 应该由最后一个expr来关闭chan
 			close(rows)
@@ -122,14 +122,14 @@ func (dm *DataManager) simpleSearch(rows chan<- ast.Row, expr ast.SQLSingleExpre
 }
 
 // @description: not equal search
-func (dm *DataManager) notEqualSearch(rows chan<- ast.Row, expr ast.SQLSingleExpression, tableInfo *pagedata.TableInfo) {
+func (dm *DataManager) notEqualSearch(rows chan<- *ast.Row, expr *ast.SQLSingleExpression, tableInfo *pagedata.TableInfo) {
 	dm.scanTable(rows, tableInfo, expr)
 }
 
 // @description: scan the whole table
 // Start from the first page and ends with the last page
 // For each page, scan all rows to find satisfied rows
-func (dm *DataManager) scanTable(rows chan<- ast.Row, tableInfo *pagedata.TableInfo, expr ast.SQLSingleExpression) {
+func (dm *DataManager) scanTable(rows chan<- *ast.Row, tableInfo *pagedata.TableInfo, expr *ast.SQLSingleExpression) {
 	// find which rows to compare
 	whereFunc, err := dm.GetRowFilter(tableInfo, expr)
 	if err != nil {
@@ -158,11 +158,11 @@ func (dm *DataManager) scanTable(rows chan<- ast.Row, tableInfo *pagedata.TableI
 // @description:  receives a sql expression and returns a function
 // @param: sql expression
 // @return: a function that can judge a row is satisfied or not
-func (dm *DataManager) GetRowFilter(tableInfo *pagedata.TableInfo, expr ast.SQLSingleExpression) (func(row ast.Row) bool, error) {
+func (dm *DataManager) GetRowFilter(tableInfo *pagedata.TableInfo, expr *ast.SQLSingleExpression) (func(row *ast.Row) bool, error) {
 	// if the both sides are columns
 	if expr.LeftVal.GetType() == ast.ST_COLUMN && expr.RightVal.GetType() == ast.ST_COLUMN {
-		leftColumnName := expr.LeftVal.GetString()
-		rightColumName := expr.RightVal.GetString()
+		leftColumnName := string(*expr.LeftVal.(*ast.SQLColumn))
+		rightColumName := string(*expr.RightVal.(*ast.SQLColumn))
 		if leftColumnName == "" || rightColumName == "" {
 			return nil, fmt.Errorf("column name is empty")
 		} else {
@@ -175,19 +175,19 @@ func (dm *DataManager) GetRowFilter(tableInfo *pagedata.TableInfo, expr ast.SQLS
 				return nil, fmt.Errorf("column: %s does not exist", rightColumName)
 			}
 			if expr.CompareOp == token.EQUAL {
-				return func(row ast.Row) bool {
-					return row[leftIndex] == row[rightIndex]
+				return func(row *ast.Row) bool {
+					return row.Data()[leftIndex] == row.Data()[rightIndex]
 				}, nil
 			} else if expr.CompareOp == token.NOT_EQUAL {
-				return func(row ast.Row) bool {
-					return row[leftIndex] != row[rightIndex]
+				return func(row *ast.Row) bool {
+					return row.Data()[leftIndex] != row.Data()[rightIndex]
 				}, nil
 			} else {
 				return nil, fmt.Errorf("compare operator: %v is not supported", expr.CompareOp)
 			}
 		}
 	} else if expr.RightVal.GetType() == ast.ST_COLUMN {
-		columnName := expr.RightVal.GetString()
+		columnName := string(*expr.RightVal.(*ast.SQLColumn))
 		if columnName == "" {
 			return nil, fmt.Errorf("column: %s does not exist", columnName)
 		}
@@ -196,18 +196,18 @@ func (dm *DataManager) GetRowFilter(tableInfo *pagedata.TableInfo, expr ast.SQLS
 			return nil, fmt.Errorf("column: %s does not exist", columnName)
 		}
 		if expr.CompareOp == token.EQUAL {
-			return func(row ast.Row) bool {
-				return row[i] == expr.LeftVal
+			return func(row *ast.Row) bool {
+				return row.Data()[i] == expr.LeftVal
 			}, nil
 		} else if expr.CompareOp == token.NOT_EQUAL {
-			return func(row ast.Row) bool {
-				return row[i] != expr.LeftVal
+			return func(row *ast.Row) bool {
+				return row.Data()[i] != expr.LeftVal
 			}, nil
 		} else {
 			return nil, fmt.Errorf("compare operator: %v is not supported", expr.CompareOp)
 		}
 	} else if expr.LeftVal.GetType() == ast.ST_COLUMN {
-		columnName := expr.LeftVal.GetString()
+		columnName := string(*expr.LeftVal.(*ast.SQLColumn))
 		if columnName == "" {
 			return nil, fmt.Errorf("column: %s does not exist", columnName)
 		}
@@ -216,23 +216,23 @@ func (dm *DataManager) GetRowFilter(tableInfo *pagedata.TableInfo, expr ast.SQLS
 			return nil, fmt.Errorf("column: %s does not exist", columnName)
 		}
 		if expr.CompareOp == token.EQUAL {
-			return func(row ast.Row) bool {
-				return row[i] == expr.RightVal
+			return func(row *ast.Row) bool {
+				return row.Data()[i] == expr.RightVal
 			}, nil
 		} else if expr.CompareOp == token.NOT_EQUAL {
-			return func(row ast.Row) bool {
-				return row[i] != expr.RightVal
+			return func(row *ast.Row) bool {
+				return row.Data()[i] != expr.RightVal
 			}, nil
 		} else {
 			return nil, fmt.Errorf("compare operator: %v is not supported", expr.CompareOp)
 		}
 	} else {
 		if expr.CompareOp == token.EQUAL {
-			return func(row ast.Row) bool {
+			return func(row *ast.Row) bool {
 				return expr.LeftVal == expr.RightVal
 			}, nil
 		} else if expr.CompareOp == token.NOT_EQUAL {
-			return func(row ast.Row) bool {
+			return func(row *ast.Row) bool {
 				return expr.LeftVal != expr.RightVal
 			}, nil
 		} else {
@@ -242,9 +242,9 @@ func (dm *DataManager) GetRowFilter(tableInfo *pagedata.TableInfo, expr ast.SQLS
 }
 
 // @description: primary key equal search
-func (dm *DataManager) pkEqSearch(rows chan<- ast.Row, index index.Index, expr ast.SQLSingleExpression) {
+func (dm *DataManager) pkEqSearch(rows chan<- *ast.Row, index index.Index, expr *ast.SQLSingleExpression) {
 	// search page Num
-	target := util.Uint32ToBytes(uint32(expr.RightVal.GetInt()))
+	target := util.Uint32ToBytes(uint32(*expr.RightVal.(*ast.SQLInt)))
 	// pageNums is a channel([]byte) to store page numbers
 	pageNums := index.Search(target)
 	// set wait group
@@ -281,9 +281,9 @@ func (dm *DataManager) pkEqSearch(rows chan<- ast.Row, index index.Index, expr a
 }
 
 // @description: search in non primary index
-func (dm *DataManager) nPkEqSearch(rows chan<- ast.Row, npIndex index.Index, pIndex index.Index, expr ast.SQLSingleExpression) {
+func (dm *DataManager) nPkEqSearch(rows chan<- *ast.Row, npIndex index.Index, pIndex index.Index, expr *ast.SQLSingleExpression) {
 	// search page Num
-	target := util.Uint32ToBytes(uint32(expr.RightVal.GetInt()))
+	target := util.Uint32ToBytes(uint32(*expr.RightVal.(*ast.SQLInt)))
 	// pkNums is a channel([]byte) to store page numbers
 	pkNums := npIndex.Search(target)
 	// set wait group
@@ -324,7 +324,7 @@ func (dm *DataManager) nPkEqSearch(rows chan<- ast.Row, npIndex index.Index, pIn
 	}()
 }
 
-func (dm *DataManager) InsertData(insertStmt ast.SQLInsertStatement) error {
+func (dm *DataManager) InsertData(insertStmt *ast.SQLInsertStatement) error {
 	// get table
 	tableInfo := dm.pager.GetMetaData().GetTableInfo(insertStmt.TableName)
 	if tableInfo == nil {
@@ -367,8 +367,9 @@ func (dm *DataManager) InsertData(insertStmt ast.SQLInsertStatement) error {
 		return fmt.Errorf("select page error: %s", err)
 	}
 	recordPageData := recordPage.GetPageData().(*pagedata.RecordData)
+	// TODO: row not created here
 	// create a new row
-	row := recordPageData.NewRow()
+	row := new(ast.Row)
 	// write data to row
 	row.SetRowData(columnIndexs, insertStmt.Values)
 	// add row to page
@@ -380,9 +381,9 @@ func (dm *DataManager) InsertData(insertStmt ast.SQLInsertStatement) error {
 		if index != nil {
 			// if column is primary key
 			if columnIndexs[i] == 0 {
-				index.Insert(row[0].Row(), util.Uint32ToBytes(recordPage.PageNo))
+				index.Insert(row.Data()[0].Raw(), util.Uint32ToBytes(recordPage.PageNo))
 			} else {
-				index.Insert(row[columnIndexs[i]].Row(), row[0].Row())
+				index.Insert(row.Data()[columnIndexs[i]].Raw(), row.Data()[0].Raw())
 			}
 		}
 	}

@@ -31,3 +31,7 @@ func (log *GeneralLog) ToNodeInsert() *redolog.NodeInsertValueLog {
 func (log *GeneralLog) ToSplitNode() *redolog.SplitNodeLog {
 	return log.Log.(*redolog.SplitNodeLog)
 }
+
+func (log *GeneralLog) ToRecordInsert() *redolog.RecordInsertRowLog {
+	return log.Log.(*redolog.RecordInsertRowLog)
+}

@@ -41,3 +41,7 @@ func (log *SplitNodeLog) Decode(r io.Reader) error {
 func (log *SplitNodeLog) LSN() int64 {
 	return log.lsn
 }
+
+func (log *SplitNodeLog) SetLSN(lsn int64) {
+	log.lsn = lsn
+}

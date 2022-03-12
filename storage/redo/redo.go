@@ -61,7 +61,7 @@ func Open(path string, pagefile *os.File) *Redo {
 func (redo *Redo) Append(log redolog.Log, w io.Writer) error {
 	logBytes := log.Encode()
 	// calc and update lsn
-	log.LSN(redo.LSN)
+	log.SetLSN(redo.LSN)
 	redo.LSN += int64(len(logBytes))
 
 	_, err := w.Write(logBytes)

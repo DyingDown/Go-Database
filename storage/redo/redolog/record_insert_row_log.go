@@ -40,3 +40,7 @@ func (log *RecordInsertRowLog) Decode(r io.Reader) error {
 func (log *RecordInsertRowLog) LSN() int64 {
 	return log.lsn
 }
+
+func (log *RecordInsertRowLog) SetLSN(lsn int64) {
+	log.lsn = lsn
+}

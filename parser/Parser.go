@@ -49,7 +49,7 @@ func (parser *Parser) CreateTable() ast.SQLCreateTableStatement {
 	}
 }
 
-func (parser *Parser) DeleteRow() ast.SQLDeleteStatement {
+func (parser *Parser) DeleteRow() *ast.SQLDeleteStatement {
 	if parser.Match(token.DELETE) && parser.Match(token.FROM) {
 		if parser.Lex.getCurrentToken().Types != token.ID {
 			panic("Doesn't declare the table name")
@@ -192,8 +192,8 @@ func (parser *Parser) getColumnDefine() *ast.SQLColumnDefine {
 	}
 }
 
-func (parser *Parser) getExpressions() ast.SQLExpression {
-	expression := ast.SQLExpression{}
+func (parser *Parser) getExpressions() *ast.SQLExpression {
+	expression := new(ast.SQLExpression)
 	exp := parser.getSingleExpression()
 	expression.Exprs = append(expression.Exprs, exp)
 	for {
@@ -208,8 +208,8 @@ func (parser *Parser) getExpressions() ast.SQLExpression {
 	return expression
 }
 
-func (parser *Parser) getSingleExpression() ast.SQLSingleExpression {
-	expr := ast.SQLSingleExpression{}
+func (parser *Parser) getSingleExpression() *ast.SQLSingleExpression {
+	expr := new(ast.SQLSingleExpression)
 	expr.LeftVal = parser.getValue()
 	expr.CompareOp = parser.getCompare()
 	expr.RightVal = parser.getValue()
