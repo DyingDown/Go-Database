@@ -146,3 +146,8 @@ func (pager *Pager) GetMetaData() *pagedata.MetaData {
 	}
 	return metapage.pageData.(*pagedata.MetaData)
 }
+
+// get file
+func (pager *Pager) GetFile() *os.File {
+	return pager.file
+}

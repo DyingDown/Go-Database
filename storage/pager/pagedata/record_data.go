@@ -2,7 +2,7 @@ package pagedata
 
 import (
 	"bytes"
-	"encoding/gob"
+	"encoding/binary"
 	"go-database/parser/ast"
 	"io"
 )
@@ -18,18 +18,24 @@ func NewRecordData() *RecordData {
 }
 
 func (record *RecordData) Encode() []byte {
-	var buf bytes.Buffer
-	encoder := gob.NewEncoder(&buf)
-	err := encoder.Encode(record)
-	if err != nil {
-		return nil
+	buff := new(bytes.Buffer)
+	binary.Write(buff, binary.BigEndian, len(record.rows))
+	for _, row := range record.rows {
+		buff.Write(row.Encode())
 	}
-	return buf.Bytes()
+	return buff.Bytes()
 }
 
 func (record *RecordData) Decode(r io.Reader) error {
-	decoder := gob.NewDecoder(r)
-	return decoder.Decode(record)
+	var len int
+	binary.Read(r, binary.BigEndian, &len)
+	record.rows = make([]*ast.Row, len)
+	for i := range record.rows {
+		row := &ast.Row{}
+		row.Decode(r)
+		record.rows[i] = row
+	}
+	return nil
 }
 
 // @description: add new rows into table

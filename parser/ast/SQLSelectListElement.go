@@ -1,7 +1,7 @@
 package ast
 
 type SQLSelectListElement struct {
-	NableName     string
+	TableName     string
 	ColumnName    string
 	NewColumnName string
 }

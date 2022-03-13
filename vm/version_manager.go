@@ -72,7 +72,7 @@ func (vm *VersionManager) AbortTransaction(xid uint64) {
 }
 
 // @description: Select Rows from tables
-func (vm *VersionManager) Select(xid uint64, stmt ast.SQLSelectStatement) ([]*ast.Row, error) {
+func (vm *VersionManager) Select(xid uint64, stmt *ast.SQLSelectStatement) ([]*ast.Row, error) {
 	vm.lock.Lock()
 	// check if xid is valid
 	transaction, ok := vm.activeTransactions[xid]
@@ -88,7 +88,7 @@ func (vm *VersionManager) Select(xid uint64, stmt ast.SQLSelectStatement) ([]*as
 	// change channel to slice
 	var result []*ast.Row
 	for row := range resultChan {
-		vis, err := isVisible(transaction, row)
+		vis, err := isVisible(transaction, row, vm.tm)
 		if err != nil {
 			return nil, err
 		}
@@ -100,24 +100,94 @@ func (vm *VersionManager) Select(xid uint64, stmt ast.SQLSelectStatement) ([]*as
 }
 
 // @description: Insert a row into table
-func (vm *VersionManager) Insert(xid uint64, stmt ast.SQLInsertStatement) error {
+func (vm *VersionManager) Insert(xid uint64, stmt *ast.SQLInsertStatement) error {
 	vm.lock.Lock()
 	// check if xid is valid
-	transaction, ok := vm.activeTransactions[xid]
+	_, ok := vm.activeTransactions[xid]
 	vm.lock.Unlock()
 	if !ok {
 		panic("xid is invalid")
 	}
-	stmt.Values = append(stmt.Values, ast.SQLValue{})
+	// set start xid and end xid
+	xmin := ast.SQLInt(xid)
+	stmt.Values = append(stmt.Values, &xmin)
+	xmax := ast.SQLInt(NULL_Xid)
+	stmt.Values = append(stmt.Values, &xmax)
 	// insert the row
 	err := vm.dm.InsertData(stmt)
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+// @description: Delete row
+func (vm *VersionManager) Delete(xid uint64, stmt *ast.SQLDeleteStatement) error {
+	vm.lock.Lock()
+	// check if xid is valid
+	_, ok := vm.activeTransactions[xid]
+	vm.lock.Unlock()
+	if !ok {
+		panic("xid is invalid")
+	}
+	// set end xid
+	seletStmt := &ast.SQLSelectStatement{
+		Table:      stmt.TableName,
+		Expr:       stmt.Expr,
+		SelectList: []ast.SQLSelectListElement{{ColumnName: "*"}},
+	}
+	rows, err := vm.Select(xid, seletStmt)
+	if err != nil {
+		return err
+	}
+	for _, row := range rows {
+		row.SetMaxXid(xid)
+		vm.dm.GetFile().WriteAt(row.Encode(), int64(row.GetPos()))
+	}
+	return nil
 }
 
 // @description: Check if the certain row is invisible for this transaction
-func isVisible(transaction *Transaction, row *ast.Row) (bool, error) {
+func isVisible(transaction *Transaction, row *ast.Row, tm *TransactionManager) (bool, error) {
+	xmin := row.MinXid()
+	xmax := row.MaxXid()
+	xid := transaction.Xid
 
+	// if is created by this transaction and is not deleted, visible
+	if xmin == xid && xmax == uint64(NULL_Xid) {
+		return true, nil
+	}
+	// if is created after this transaction, not visible
+	if xmin > xid {
+		return false, nil
+	}
+	// if the transaction is not committed and created before this transaction, not visible
+	if !tm.CheckCommited(xmin) {
+		return false, nil
+	}
+	// if transaction is not finished when starting this transaction, not visible
+	if _, ok := transaction.SnapShot[xmin]; ok {
+		return false, nil
+	}
+	// if is not deleted, visible
+	if int64(xmax) == NULL_Xid {
+		return true, nil
+	}
+	// if data is deleted by current transaction, not visible
+	if xmax == xid {
+		return false, nil
+	}
+	// if data is deleted by other transaction but not committed, visible
+	if !tm.CheckCommited(xmax) {
+		return true, nil
+	}
+	// if data is deleted by other transaction and commit time is later than current transaction, visible
+	if xmax > xid {
+		return true, nil
+	}
+	// if data is deleted by other transaction but not commit when starting this transaction
+	if _, ok := transaction.SnapShot[xmax]; ok {
+		return true, nil
+	}
 	return false, nil
 }

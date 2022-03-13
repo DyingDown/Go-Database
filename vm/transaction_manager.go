@@ -124,3 +124,25 @@ func (tm *TransactionManager) UpdateHeader(xid uint64) {
 		logrus.Fatal("fail sync file " + tm.XidFile.Name())
 	}
 }
+
+// @description: get transaction status
+func (tm *TransactionManager) GetTransactionStatus(xid uint64) TransactionStatus {
+	status := make([]byte, 1)
+	_, err := tm.XidFile.ReadAt(status, int64(xid)+8)
+	if err != nil {
+		logrus.Fatal("fail read file " + tm.XidFile.Name())
+	}
+	return TransactionStatus(status[0])
+}
+
+// @description: check commited
+func (tm *TransactionManager) CheckCommited(xid uint64) bool {
+	status := tm.GetTransactionStatus(xid)
+	return status == TS_COMMIT
+}
+
+// @description: check aborted
+func (tm *TransactionManager) CheckAborted(xid uint64) bool {
+	status := tm.GetTransactionStatus(xid)
+	return status == TS_ABORT
+}

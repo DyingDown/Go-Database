@@ -6,6 +6,10 @@
  */
 package vm
 
+import "math"
+
+const NULL_Xid int64 = math.MaxInt64
+
 type Transaction struct {
 	Xid      uint64
 	SnapShot map[uint64]struct{}

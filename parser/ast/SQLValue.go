@@ -2,11 +2,12 @@ package ast
 
 import (
 	"encoding/binary"
+	"fmt"
 	"go-database/util"
 	"io"
 )
 
-type SQLType int
+type SQLType int8
 
 type SQLInt int64
 type SQLFloat float64
@@ -25,7 +26,7 @@ type SQLValue interface {
 	Raw() []byte
 	GetType() SQLType
 	Encode(w io.Writer)
-	Decode(r io.Reader)
+	Decode(r io.Reader) uint64
 }
 
 // INT
@@ -42,8 +43,9 @@ func (sqlint *SQLInt) Encode(w io.Writer) {
 	binary.Write(w, binary.BigEndian, sqlint)
 }
 
-func (sqlint *SQLInt) Decode(r io.Reader) {
+func (sqlint *SQLInt) Decode(r io.Reader) uint64 {
 	binary.Read(r, binary.BigEndian, sqlint)
+	return uint64(8)
 }
 
 // FLOAT
@@ -60,8 +62,9 @@ func (sqlfloat *SQLFloat) Encode(w io.Writer) {
 	binary.Write(w, binary.BigEndian, sqlfloat)
 }
 
-func (sqlfloat *SQLFloat) Decode(r io.Reader) {
+func (sqlfloat *SQLFloat) Decode(r io.Reader) uint64 {
 	binary.Read(r, binary.BigEndian, sqlfloat)
+	return uint64(8)
 }
 
 // STRING
@@ -79,12 +82,13 @@ func (sqlstring *SQLString) Encode(w io.Writer) {
 	w.Write([]byte(*sqlstring))
 }
 
-func (sqlstring *SQLString) Decode(r io.Reader) {
+func (sqlstring *SQLString) Decode(r io.Reader) uint64 {
 	var size uint16
 	binary.Read(r, binary.BigEndian, size)
 	buff := make([]byte, size)
 	r.Read(buff)
 	*sqlstring = SQLString(buff)
+	return uint64(2 + size)
 }
 
 // COLUMN
@@ -98,15 +102,42 @@ func (sqlcolumn *SQLColumn) GetType() SQLType {
 
 func (sqlcol *SQLColumn) Encode(w io.Writer) {
 	binary.Write(w, binary.BigEndian, ST_COLUMN)
+	binary.Write(w, binary.BigEndian, uint16(len(*sqlcol)))
 	binary.Write(w, binary.BigEndian, sqlcol)
 }
 
-func (sqlcol *SQLColumn) Decode(r io.Reader) {
+func (sqlcol *SQLColumn) Decode(r io.Reader) uint64 {
 	var size uint16
 	binary.Read(r, binary.BigEndian, size)
 	buff := make([]byte, size)
 	r.Read(buff)
 	*sqlcol = SQLColumn(buff)
+	return uint64(2 + size)
+}
+
+// decode an unknown type sql value
+func DecodeValue(r io.Reader) (SQLValue, uint64, error) {
+	var tp int8
+	binary.Read(r, binary.BigEndian, &tp)
+	var size uint64 = 1
+	if tp == int8(ST_INT) {
+		var v SQLInt
+		size += v.Decode(r)
+		return &v, size, nil
+	} else if tp == int8(ST_FLOAT) {
+		var v SQLFloat
+		size += v.Decode(r)
+		return &v, size, nil
+	} else if tp == int8(ST_STRING) {
+		var v SQLString
+		size += v.Decode(r)
+		return &v, size, nil
+	} else if tp == int8(ST_COLUMN) {
+		var v SQLColumn
+		size += v.Decode(r)
+		return &v, size, nil
+	}
+	return nil, 0, fmt.Errorf("unknown type %d", tp)
 }
 
 // check if sql value type mathches column type

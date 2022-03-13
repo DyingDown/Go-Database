@@ -14,6 +14,7 @@ import (
 	"go-database/storage/pager"
 	"go-database/storage/pager/pagedata"
 	"go-database/util"
+	"os"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -37,7 +38,12 @@ func OpenDM(path string) *DataManager {
 	}
 }
 
-// @description: selet rows according to sql where statement
+// get file
+func (dm *DataManager) GetFile() *os.File {
+	return dm.pager.GetFile()
+}
+
+// @description: select rows according to sql where statement
 func (dm *DataManager) SelectData(st *ast.SQLSelectStatement) (<-chan *ast.Row, error) {
 	rows := make(chan *ast.Row, 100)
 	// get table info
@@ -361,18 +367,19 @@ func (dm *DataManager) InsertData(insertStmt *ast.SQLInsertStatement) error {
 			columnIndexs = append(columnIndexs, i)
 		}
 	}
-	// find a suitable page(last page or a new page) to insert new row
-	recordPage, err := dm.pager.SelectPage(int(insertStmt.ValueSize()), insertStmt.TableName)
-	if err != nil {
-		return fmt.Errorf("select page error: %s", err)
-	}
-	recordPageData := recordPage.GetPageData().(*pagedata.RecordData)
 	// TODO: row not created here
 	// create a new row
 	row := new(ast.Row)
 	// write data to row
 	row.SetRowData(columnIndexs, insertStmt.Values)
 	// add row to page
+	// find a suitable page(last page or a new page) to insert new row
+	recordPage, err := dm.pager.SelectPage(int(row.Size()), insertStmt.TableName)
+	if err != nil {
+		return fmt.Errorf("select page error: %s", err)
+	}
+	row.SetPos(uint64(util.PageSize*recordPage.PageNo + uint32(recordPage.Size())))
+	recordPageData := recordPage.GetPageData().(*pagedata.RecordData)
 	recordPageData.AppendData(row)
 
 	// update index

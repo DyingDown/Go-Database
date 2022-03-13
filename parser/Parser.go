@@ -3,6 +3,7 @@ package parser
 import (
 	"go-database/parser/ast"
 	"go-database/parser/token"
+	"strconv"
 )
 
 type Parser struct {
@@ -58,7 +59,10 @@ func (parser *Parser) DeleteRow() *ast.SQLDeleteStatement {
 		if parser.Match(token.WHERE) {
 			expr := parser.getExpressions()
 			if parser.Match(token.SEMICOLON) {
-				return ast.SQLDeleteStatement{tableName, expr}
+				sdstmt := new(ast.SQLDeleteStatement)
+				sdstmt.TableName = tableName
+				sdstmt.Expr = expr
+				return sdstmt
 			} else {
 				panic("Missing ';'")
 			}
@@ -142,7 +146,11 @@ func (parser *Parser) Select() {
 		_tk := true
 		for _tk || parser.Match(token.COMMA) {
 			_tk = false
-			stmt.SelectList = append(stmt.SelectList, parser.getSelectElement())
+			listEle := parser.getSelectElement()
+			stmt.SelectList = append(stmt.SelectList, listEle)
+			if listEle.ColumnName == "*" {
+				break
+			}
 		}
 		if !parser.Match(token.FROM) {
 			panic("Not a valid select, missing word 'from'")
@@ -218,11 +226,26 @@ func (parser *Parser) getSingleExpression() *ast.SQLSingleExpression {
 
 func (parser *Parser) getValue() ast.SQLValue {
 	currentToken := parser.Lex.getNextToken()
-	if currentToken.Types == token.ID ||
-		currentToken.Types == token.STRING ||
-		currentToken.Types == token.INT ||
-		currentToken.Types == token.FLOAT {
-		return ast.NewSQLValue(currentToken)
+	if currentToken.Types == token.ID {
+		col := ast.SQLColumn(currentToken.Value)
+		return &col
+	} else if currentToken.Types == token.STRING {
+		str := ast.SQLString(currentToken.Value)
+		return &str
+	} else if currentToken.Types == token.INT {
+		num, err := strconv.ParseInt(currentToken.Value, 10, 0)
+		if err != nil {
+			panic(err)
+		}
+		i := ast.SQLInt(num)
+		return &i
+	} else if currentToken.Types == token.FLOAT {
+		num, err := strconv.ParseFloat(currentToken.Value, 64)
+		if err != nil {
+			panic(err)
+		}
+		f := ast.SQLFloat(num)
+		return &f
 	} else {
 		panic("Not a valid parameter")
 	}
@@ -257,7 +280,7 @@ func (parser *Parser) getSelectElement() ast.SQLSelectListElement {
 		if dot.Types == token.DOT {
 			t := parser.Lex.getNextToken()
 			if t.Types == token.ID {
-				ele.NableName = tk.Value
+				ele.TableName = tk.Value
 				ele.ColumnName = t.Value
 			} else {
 				panic("missing column name")
