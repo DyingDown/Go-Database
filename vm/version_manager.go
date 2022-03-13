@@ -100,7 +100,7 @@ func (vm *VersionManager) Select(xid uint64, stmt *ast.SQLSelectStatement) ([]*a
 }
 
 // @description: Insert a row into table
-func (vm *VersionManager) Insert(xid uint64, stmt *ast.SQLInsertStatement) error {
+func (vm *VersionManager) Insert(xid uint64, stmt *ast.SQLInsertStatement) (*ast.Row, error) {
 	vm.lock.Lock()
 	// check if xid is valid
 	_, ok := vm.activeTransactions[xid]
@@ -114,15 +114,15 @@ func (vm *VersionManager) Insert(xid uint64, stmt *ast.SQLInsertStatement) error
 	xmax := ast.SQLInt(NULL_Xid)
 	stmt.Values = append(stmt.Values, &xmax)
 	// insert the row
-	err := vm.dm.InsertData(stmt)
+	row, err := vm.dm.InsertData(stmt)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return row, nil
 }
 
 // @description: Delete row
-func (vm *VersionManager) Delete(xid uint64, stmt *ast.SQLDeleteStatement) error {
+func (vm *VersionManager) Delete(xid uint64, stmt *ast.SQLDeleteStatement) ([]*ast.Row, error) {
 	vm.lock.Lock()
 	// check if xid is valid
 	_, ok := vm.activeTransactions[xid]
@@ -130,7 +130,6 @@ func (vm *VersionManager) Delete(xid uint64, stmt *ast.SQLDeleteStatement) error
 	if !ok {
 		panic("xid is invalid")
 	}
-	// set end xid
 	seletStmt := &ast.SQLSelectStatement{
 		Table:      stmt.TableName,
 		Expr:       stmt.Expr,
@@ -138,13 +137,16 @@ func (vm *VersionManager) Delete(xid uint64, stmt *ast.SQLDeleteStatement) error
 	}
 	rows, err := vm.Select(xid, seletStmt)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	rowSlice := make([]*ast.Row, 0)
+	// set end xid and turns channel to slice
 	for _, row := range rows {
 		row.SetMaxXid(xid)
 		vm.dm.GetFile().WriteAt(row.Encode(), int64(row.GetPos()))
+		rowSlice = append(rowSlice, row)
 	}
-	return nil
+	return rowSlice, nil
 }
 
 // @description: Check if the certain row is invisible for this transaction

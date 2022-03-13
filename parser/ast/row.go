@@ -78,3 +78,11 @@ func (row *Row) MinXid() uint64 {
 func (row *Row) MaxXid() uint64 {
 	return uint64(*row.data[len(row.data)-1].(*SQLInt))
 }
+
+func (row *Row) DeepCopy() []SQLValue {
+	var data []SQLValue
+	for _, v := range row.data {
+		data = append(data, v.DeepCopy())
+	}
+	return data
+}

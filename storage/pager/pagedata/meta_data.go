@@ -14,9 +14,9 @@ type MetaData struct {
 }
 
 type TableInfo struct {
-	tableId    uint32
+	TableId    uint32
 	tableName  string
-	columns    []*ast.SQLColumnDefine
+	Columns    []*ast.SQLColumnDefine
 	FirstPage  uint32
 	LastPage   uint32
 	PrimaryKey uint32
@@ -49,8 +49,20 @@ func (metadata *MetaData) Size() int {
 	return len(metadata.Encode())
 }
 
+func (metadata *MetaData) NewTableInfo(tableName string, cols []*ast.SQLColumnDefine) *TableInfo {
+	return &TableInfo{
+		TableId:   uint32(len(metadata.tables)),
+		tableName: tableName,
+		Columns:   cols,
+	}
+}
+
+func (metadata *MetaData) AddTableInfo(tableInfo *TableInfo) {
+	metadata.tables[tableInfo.tableName] = tableInfo
+}
+
 func (tableInfo *TableInfo) GetColumnInfo(columnName string) (int, *ast.SQLColumnDefine) {
-	for index, column := range tableInfo.columns {
+	for index, column := range tableInfo.Columns {
 		if columnName == column.ColumnName {
 			return index, column
 		}
@@ -59,8 +71,17 @@ func (tableInfo *TableInfo) GetColumnInfo(columnName string) (int, *ast.SQLColum
 }
 
 func (tableInfo *TableInfo) GetColumns() []*ast.SQLColumnDefine {
-	return tableInfo.columns
+	return tableInfo.Columns
 }
 func (tableInfo *TableInfo) GetPrimaryKey() string {
-	return tableInfo.columns[tableInfo.PrimaryKey].ColumnName
+	return tableInfo.Columns[tableInfo.PrimaryKey].ColumnName
+}
+
+// get column names
+func (tableInfo *TableInfo) GetColumnNames() []string {
+	columns := make([]string, 0)
+	for _, column := range tableInfo.Columns {
+		columns = append(columns, column.ColumnName)
+	}
+	return columns
 }

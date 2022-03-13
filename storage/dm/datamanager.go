@@ -161,7 +161,7 @@ func (dm *DataManager) scanTable(rows chan<- *ast.Row, tableInfo *pagedata.Table
 	close(rows)
 }
 
-// @description:  receives a sql expression and returns a function
+// @description:  receives a sql expression(where statement) and returns a function
 // @param: sql expression
 // @return: a function that can judge a row is satisfied or not
 func (dm *DataManager) GetRowFilter(tableInfo *pagedata.TableInfo, expr *ast.SQLSingleExpression) (func(row *ast.Row) bool, error) {
@@ -330,11 +330,11 @@ func (dm *DataManager) nPkEqSearch(rows chan<- *ast.Row, npIndex index.Index, pI
 	}()
 }
 
-func (dm *DataManager) InsertData(insertStmt *ast.SQLInsertStatement) error {
+func (dm *DataManager) InsertData(insertStmt *ast.SQLInsertStatement) (*ast.Row, error) {
 	// get table
 	tableInfo := dm.pager.GetMetaData().GetTableInfo(insertStmt.TableName)
 	if tableInfo == nil {
-		return fmt.Errorf("table: %s does not exist", insertStmt.TableName)
+		return nil, fmt.Errorf("table: %s does not exist", insertStmt.TableName)
 	}
 	// get table columns
 	// set lens to nubmer of columns, and put columnDefine into the columns index
@@ -344,21 +344,21 @@ func (dm *DataManager) InsertData(insertStmt *ast.SQLInsertStatement) error {
 	if len(insertStmt.ColumnNames) != 0 {
 		for i, CN := range insertStmt.ColumnNames {
 			if CN == "" {
-				return fmt.Errorf("doesn't specify a column name")
+				return nil, fmt.Errorf("doesn't specify a column name")
 			}
 			index, columnDefine := tableInfo.GetColumnInfo(CN)
 			if columnDefine == nil {
-				return fmt.Errorf("column: %s does not exist", CN)
+				return nil, fmt.Errorf("column: %s does not exist", CN)
 			}
 			if columns[index] != nil {
-				return fmt.Errorf("column: %s is duplicated", CN)
+				return nil, fmt.Errorf("column: %s is duplicated", CN)
 			}
 			// check is column type match value type
 			if ast.ValueTypeVsColumnType(insertStmt.Values[i].GetType(), columnDefine.ColumnType) {
 				columns = append(columns, columnDefine)
 				columnIndexs = append(columnIndexs, index)
 			} else {
-				return fmt.Errorf("column: %s type does not match value type", CN)
+				return nil, fmt.Errorf("column: %s type does not match value type", CN)
 			}
 		}
 	} else {
@@ -376,7 +376,7 @@ func (dm *DataManager) InsertData(insertStmt *ast.SQLInsertStatement) error {
 	// find a suitable page(last page or a new page) to insert new row
 	recordPage, err := dm.pager.SelectPage(int(row.Size()), insertStmt.TableName)
 	if err != nil {
-		return fmt.Errorf("select page error: %s", err)
+		return nil, fmt.Errorf("select page error: %s", err)
 	}
 	row.SetPos(uint64(util.PageSize*recordPage.PageNo + uint32(recordPage.Size())))
 	recordPageData := recordPage.GetPageData().(*pagedata.RecordData)
@@ -394,5 +394,5 @@ func (dm *DataManager) InsertData(insertStmt *ast.SQLInsertStatement) error {
 			}
 		}
 	}
-	return nil
+	return row, nil
 }

@@ -7,6 +7,7 @@ const (
 	STRING
 	FLOAT
 	ID
+	ABORT
 	ADD
 	ALTER
 	ALL
@@ -16,8 +17,10 @@ const (
 	ASC // 升序
 	AVG
 	BY
+	BEGIN
 	CHECK
 	COLUMN
+	COMMIT
 	COUNT
 	CREATE
 	DELETE

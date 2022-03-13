@@ -27,6 +27,7 @@ type SQLValue interface {
 	GetType() SQLType
 	Encode(w io.Writer)
 	Decode(r io.Reader) uint64
+	DeepCopy() SQLValue
 }
 
 // INT
@@ -48,6 +49,11 @@ func (sqlint *SQLInt) Decode(r io.Reader) uint64 {
 	return uint64(8)
 }
 
+func (sqlint *SQLInt) DeepCopy() SQLValue {
+	val := SQLInt(*sqlint)
+	return &val
+}
+
 // FLOAT
 func (sqlfloat *SQLFloat) Raw() []byte {
 	return util.Float64ToBytes(float64(*sqlfloat))
@@ -65,6 +71,11 @@ func (sqlfloat *SQLFloat) Encode(w io.Writer) {
 func (sqlfloat *SQLFloat) Decode(r io.Reader) uint64 {
 	binary.Read(r, binary.BigEndian, sqlfloat)
 	return uint64(8)
+}
+
+func (sqlfloat *SQLFloat) DeepCopy() SQLValue {
+	val := SQLFloat(*sqlfloat)
+	return &val
 }
 
 // STRING
@@ -91,6 +102,11 @@ func (sqlstring *SQLString) Decode(r io.Reader) uint64 {
 	return uint64(2 + size)
 }
 
+func (sqlstring *SQLString) DeepCopy() SQLValue {
+	val := SQLString(*sqlstring)
+	return &val
+}
+
 // COLUMN
 func (sqlcolumn *SQLColumn) Raw() []byte {
 	return []byte(*sqlcolumn)
@@ -113,6 +129,11 @@ func (sqlcol *SQLColumn) Decode(r io.Reader) uint64 {
 	r.Read(buff)
 	*sqlcol = SQLColumn(buff)
 	return uint64(2 + size)
+}
+
+func (sqlcol *SQLColumn) DeepCopy() SQLValue {
+	val := SQLColumn(*sqlcol)
+	return &val
 }
 
 // decode an unknown type sql value
