@@ -340,7 +340,7 @@ func (parser *Parser) getAssigns() ast.SQLAssignStatement {
 	return stmt
 }
 
-func parseStatement(sql string) ast.SQLStatement {
+func ParseStatement(sql string) ast.SQLStatement {
 	parser := NewParser(sql)
 	switch parser.Lex.getCurrentToken().Types {
 	case token.SELECT:

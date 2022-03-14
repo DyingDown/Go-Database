@@ -156,7 +156,7 @@ func isVisible(transaction *Transaction, row *ast.Row, tm *TransactionManager) (
 	xid := transaction.Xid
 
 	// if is created by this transaction and is not deleted, visible
-	if xmin == xid && xmax == uint64(NULL_Xid) {
+	if xmin == xid && xmax == NULL_Xid {
 		return true, nil
 	}
 	// if is created after this transaction, not visible
@@ -172,7 +172,7 @@ func isVisible(transaction *Transaction, row *ast.Row, tm *TransactionManager) (
 		return false, nil
 	}
 	// if is not deleted, visible
-	if int64(xmax) == NULL_Xid {
+	if xmax == NULL_Xid {
 		return true, nil
 	}
 	// if data is deleted by current transaction, not visible

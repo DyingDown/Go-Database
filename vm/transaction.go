@@ -8,7 +8,7 @@ package vm
 
 import "math"
 
-const NULL_Xid int64 = math.MaxInt64
+const NULL_Xid uint64 = math.MaxInt64
 
 type Transaction struct {
 	Xid      uint64
