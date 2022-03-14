@@ -35,14 +35,15 @@ type TransactionManager struct {
 
 // @description: create xid file
 func CreateTM(path string) *TransactionManager {
+	filepath := path + util.DBName + ".xid"
 	// check if file already exists
-	if status, err := os.Stat(path + "_xid"); err == nil && status.Size() != 0 {
+	if status, err := os.Stat(filepath); err == nil && status.Size() != 0 {
 		log.Fatal("xid file already exists")
 		return OpenTM(path)
 	}
-	xid, err := os.OpenFile(path+"_xid", os.O_RDWR|os.O_CREATE, 0666)
+	xid, err := os.OpenFile(filepath, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
-		panic("fail create file " + path + "_xid")
+		panic("fail create file " + filepath)
 	}
 	// write max xid to head of file
 	xid.WriteAt(util.Int64ToBytes(0), 0)
@@ -55,19 +56,20 @@ func CreateTM(path string) *TransactionManager {
 
 // @description: open xid file
 func OpenTM(path string) *TransactionManager {
-	xid, err := os.OpenFile(path+"_xid", os.O_RDWR|os.O_CREATE, 0666)
+	filepath := path + util.DBName + ".xid"
+	xid, err := os.OpenFile(filepath, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
-		logrus.Fatal("fail open file " + path + "_xid")
+		logrus.Fatal("fail open file " + filepath)
 	}
 	// get max xid
 	xidBytes := make([]byte, 8)
 	n, err := xid.ReadAt(xidBytes, 0)
 	if err != nil {
-		logrus.Fatal("fail read file "+path+"_xid: %v", err)
+		logrus.Fatal("fail read file "+filepath+": %v", err)
 	}
 	// if the result is less than 8 bytes, then the xid is not complete, the file crashed
 	if n != 8 {
-		logrus.Fatal("fail read file " + path + "_xid")
+		logrus.Fatal("fail read file " + filepath)
 	}
 	return &TransactionManager{
 		XidFile: xid,

@@ -19,6 +19,7 @@ import (
 	"math"
 	"os"
 
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -28,7 +29,8 @@ type Pager struct {
 }
 
 // sql file already existed
-func OpenFile(filepath string) *Pager {
+func OpenFile(path string) *Pager {
+	filepath := path + util.DBName + ".db"
 	c := cache.CreateCache()
 	f, err := os.OpenFile(filepath, os.O_RDWR, 0666)
 	if err != nil {
@@ -48,7 +50,12 @@ func OpenFile(filepath string) *Pager {
 }
 
 // @description: create a new sql file
-func CreateFile(filepath string) *Pager {
+func CreateFile(path string) *Pager {
+	filepath := path + util.DBName + ".db"
+	if _, err := os.Stat(filepath); err == nil {
+		logrus.Error("file already existed")
+		OpenFile(path)
+	}
 	c := cache.CreateCache()
 	f, err := os.OpenFile(filepath, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {

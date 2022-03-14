@@ -23,9 +23,9 @@ type TableManager struct {
 
 func Open(path string) *TableManager {
 	pgr := pager.CreateFile(path)
-	DM := dm.CreateDM(path)
+	DM := dm.CreateDM(path, pgr)
 	TM := vm.CreateTM(path)
-	VM := vm.CreateVM(DM, path)
+	VM := vm.CreateVM(DM, TM)
 	return &TableManager{
 		dm:       DM,
 		tm:       TM,
@@ -41,10 +41,10 @@ func (tbm *TableManager) Close() {
 }
 
 func Create(path string) *TableManager {
-	pgr := pager.OpenFile(path)
-	DM := dm.CreateDM(path)
+	pgr := pager.CreateFile(path)
+	DM := dm.CreateDM(path, pgr)
 	TM := vm.CreateTM(path)
-	VM := vm.CreateVM(DM, path)
+	VM := vm.CreateVM(DM, TM)
 	return &TableManager{
 		dm:       DM,
 		tm:       TM,

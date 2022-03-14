@@ -9,3 +9,5 @@ const (
 	NetWork               = "tcp"
 	Address               = "127.0.0.1:8080"
 )
+
+var DBName = "test"

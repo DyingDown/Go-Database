@@ -21,6 +21,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -66,7 +67,7 @@ func NewPage(pageNo uint32, data PageData) *Page {
 func (page *Page) Encode() []byte {
 	page.lock.Lock()
 	defer page.lock.Unlock()
-	buf := bytes.NewBuffer(make([]byte, util.PageSize))
+	buf := bytes.NewBuffer(make([]byte, 0, util.PageSize))
 	binary.Write(buf, binary.BigEndian, page.pageType)
 	binary.Write(buf, binary.BigEndian, page.PageNo)
 	binary.Write(buf, binary.BigEndian, page.prevPageNo)
@@ -75,7 +76,9 @@ func (page *Page) Encode() []byte {
 	binary.Write(buf, binary.BigEndian, page.LSN)
 	// page data needs special encode for different data types
 	dataBytes := page.pageData.Encode()
+	logrus.Error(buf.Len())
 	buf.Write(dataBytes)
+	logrus.Error(buf.Len())
 	// fill the page with 0s if the page content is smaller than a page
 	zeroLen := util.PageSize - len(buf.Bytes())
 	buf.Write(make([]byte, zeroLen))

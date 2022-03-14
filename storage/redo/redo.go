@@ -14,6 +14,7 @@ package redo
 import (
 	"bytes"
 	"go-database/storage/redo/redolog"
+	"go-database/util"
 	"io"
 	"log"
 	"os"
@@ -30,13 +31,14 @@ type Redo struct {
 // @description: create a new redo log file
 func Create(path string, pagefile *os.File) *Redo {
 	// check if file already exists
-	if status, err := os.Stat(path + "_log"); err == nil && status.Size() != 0 {
+	filepath := path + util.DBName + ".log"
+	if status, err := os.Stat(filepath); err == nil && status.Size() != 0 {
 		log.Fatal("redo log file already exists")
 		return Open(path, pagefile)
 	}
-	log, err := os.OpenFile(path+"_log", os.O_CREATE, 0666)
+	log, err := os.OpenFile(filepath, os.O_CREATE, 0666)
 	if err != nil {
-		panic("fail create file " + path + "_log")
+		panic("fail create file " + filepath)
 	}
 	return &Redo{
 		logFile:  log,
@@ -47,9 +49,10 @@ func Create(path string, pagefile *os.File) *Redo {
 
 // @description: open a redo log file
 func Open(path string, pagefile *os.File) *Redo {
-	log, err := os.OpenFile(path+"_log", os.O_RDWR|os.O_CREATE, 0666)
+	filepath := path + util.DBName + ".log"
+	log, err := os.OpenFile(filepath, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
-		panic("fail open file " + path + "_log")
+		panic("fail open file " + filepath)
 	}
 	return &Redo{
 		logFile:  log,
@@ -77,7 +80,7 @@ func (redo *Redo) Write(log []redolog.Log) (int64, error) {
 	// write to log file
 	redo.lock.Lock()
 	defer redo.lock.Unlock()
-	buffer := bytes.NewBuffer(nil)
+	buffer := bytes.NewBuffer(make([]byte, 0))
 	for _, log := range log {
 		err := redo.Append(log, buffer)
 		if err != nil {

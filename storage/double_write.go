@@ -35,9 +35,10 @@ type DoubleWrite struct {
 }
 
 func Open(path string, pagefile *os.File) *DoubleWrite {
-	buffer, err := os.OpenFile(path+"_buffer", os.O_RDWR, 0666)
+	filepath := path + util.DBName + ".buffer"
+	buffer, err := os.OpenFile(filepath, os.O_RDWR, 0666)
 	if err != nil {
-		panic("fail open file " + path + "_buffer")
+		panic("fail open file " + filepath)
 	}
 	return &DoubleWrite{
 		PageBuffer: buffer,
@@ -48,13 +49,15 @@ func Open(path string, pagefile *os.File) *DoubleWrite {
 
 func Create(path string, pagefile *os.File) *DoubleWrite {
 	// if file already exists
-	if status, err := os.Stat(path + "_buffer"); err == nil && status.Size() != 0 {
+
+	filepath := path + util.DBName + ".buffer"
+	if status, err := os.Stat(filepath); err == nil && status.Size() != 0 {
 		log.Fatal("DoubleWrite buffer file already exists")
 		return Open(path, pagefile)
 	}
-	buffer, err := os.OpenFile(path+"_buffer", os.O_RDWR|os.O_CREATE, 0666)
+	buffer, err := os.OpenFile(filepath, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
-		panic("fail create file " + path + "_buffer")
+		panic("fail create file " + filepath)
 	}
 	buffer.Write(NULL_Buffer)
 	buffer.Sync()

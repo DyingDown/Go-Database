@@ -24,17 +24,15 @@ type DataManager struct {
 	pager *pager.Pager
 }
 
-func CreateDM(path string) *DataManager {
-	p := pager.CreateFile(path)
+func CreateDM(path string, pgr *pager.Pager) *DataManager {
 	return &DataManager{
-		pager: p,
+		pager: pgr,
 	}
 }
 
-func OpenDM(path string) *DataManager {
-	p := pager.OpenFile(path)
+func OpenDM(path string, pgr *pager.Pager) *DataManager {
 	return &DataManager{
-		pager: p,
+		pager: pgr,
 	}
 }
 

@@ -13,8 +13,8 @@ type VersionManager struct {
 	lock               sync.RWMutex
 }
 
-func CreateVM(dm *dm.DataManager, path string) *VersionManager {
-	tm := CreateTM(path)
+func CreateVM(dm *dm.DataManager, tm *TransactionManager) *VersionManager {
+	// tm := CreateTM(path)
 	return &VersionManager{
 		dm:                 dm,
 		tm:                 tm,
@@ -22,8 +22,8 @@ func CreateVM(dm *dm.DataManager, path string) *VersionManager {
 	}
 }
 
-func OpenVM(dm *dm.DataManager, path string) *VersionManager {
-	tm := OpenTM(path)
+func OpenVM(dm *dm.DataManager, tm *TransactionManager) *VersionManager {
+	// tm := OpenTM(path)
 	return &VersionManager{
 		dm:                 dm,
 		tm:                 tm,
