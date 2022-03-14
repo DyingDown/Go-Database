@@ -5,3 +5,7 @@ type SQLSelectStatement struct {
 	Table      string
 	Expr       *SQLExpression
 }
+
+func (sql SQLSelectStatement) Type() string {
+	return "Select Statement"
+}

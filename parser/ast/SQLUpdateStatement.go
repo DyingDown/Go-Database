@@ -5,3 +5,7 @@ type SQLUpdateStatement struct {
 	Assigns   []SQLAssignStatement
 	Expr      *SQLExpression
 }
+
+func (sql SQLUpdateStatement) Type() string {
+	return "Update"
+}

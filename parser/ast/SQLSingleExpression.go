@@ -8,10 +8,14 @@ type SQLSingleExpression struct {
 	RightVal  SQLValue
 }
 
-func (sse *SQLSingleExpression) IsEqual() bool {
-	return sse.CompareOp == token.EQUAL
+func (sql SQLSingleExpression) IsEqual() bool {
+	return sql.CompareOp == token.EQUAL
 }
 
-func (sse *SQLSingleExpression) NotEqual() bool {
-	return sse.CompareOp == token.NOT_EQUAL
+func (sql SQLSingleExpression) NotEqual() bool {
+	return sql.CompareOp == token.NOT_EQUAL
+}
+
+func (sql SQLSingleExpression) Type() string {
+	return "one expression"
 }

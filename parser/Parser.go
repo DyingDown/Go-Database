@@ -24,6 +24,31 @@ func (parser *Parser) Match(targetType token.TokenType) bool {
 	return false
 }
 
+// transaction
+func (parser *Parser) Begin() ast.BeginTransaction {
+	if parser.Match(token.BEGIN) && parser.Match(token.SEMICOLON) {
+		return ast.BeginTransaction("begin")
+	} else {
+		panic("Not a begin transaction statement or missing semicolon")
+	}
+}
+
+func (parser *Parser) Commit() ast.BeginTransaction {
+	if parser.Match(token.COMMIT) && parser.Match(token.SEMICOLON) {
+		return ast.BeginTransaction("commit")
+	} else {
+		panic("Not a commit transaction statement or missing semicolon")
+	}
+}
+
+func (parser *Parser) Abort() ast.BeginTransaction {
+	if parser.Match(token.ABORT) && parser.Match(token.SEMICOLON) {
+		return ast.BeginTransaction("abort")
+	} else {
+		panic("Not a abort transaction statement or missing semicolon")
+	}
+}
+
 func (parser *Parser) CreateTable() ast.SQLCreateTableStatement {
 	stmt := ast.SQLCreateTableStatement{}
 	if parser.Match(token.CREATE) && parser.Match(token.TABLE) {
@@ -50,7 +75,7 @@ func (parser *Parser) CreateTable() ast.SQLCreateTableStatement {
 	}
 }
 
-func (parser *Parser) DeleteRow() *ast.SQLDeleteStatement {
+func (parser *Parser) Delete() *ast.SQLDeleteStatement {
 	if parser.Match(token.DELETE) && parser.Match(token.FROM) {
 		if parser.Lex.getCurrentToken().Types != token.ID {
 			panic("Doesn't declare the table name")
@@ -96,7 +121,7 @@ func (parser *Parser) DropTable() []string {
 	}
 }
 
-func (parser *Parser) InsertRow() ast.SQLInsertStatement {
+func (parser *Parser) Insert() ast.SQLInsertStatement {
 	stmt := ast.SQLInsertStatement{}
 	if parser.Match(token.INSERT) && parser.Match(token.INTO) {
 		if parser.Lex.getCurrentToken().Types == token.ID {
@@ -140,7 +165,7 @@ func (parser *Parser) InsertRow() ast.SQLInsertStatement {
 	}
 }
 
-func (parser *Parser) Select() {
+func (parser *Parser) Select() ast.SQLSelectStatement {
 	stmt := ast.SQLSelectStatement{}
 	if parser.Match(token.SELECT) {
 		_tk := true
@@ -161,6 +186,7 @@ func (parser *Parser) Select() {
 		if parser.Lex.getNextToken().Types == token.WHERE {
 			stmt.Expr = parser.getExpressions()
 		}
+		return stmt
 	} else {
 		panic("Not a select statement")
 	}
@@ -312,4 +338,28 @@ func (parser *Parser) getAssigns() ast.SQLAssignStatement {
 		stmt.Value = parser.getValue()
 	}
 	return stmt
+}
+
+func parseStatement(sql string) ast.SQLStatement {
+	parser := NewParser(sql)
+	switch parser.Lex.getCurrentToken().Types {
+	case token.SELECT:
+		return parser.Select()
+	case token.INSERT:
+		return parser.Insert()
+	case token.UPDATE:
+		return parser.Update()
+	case token.DELETE:
+		return parser.Delete()
+	case token.ABORT:
+		return parser.Abort()
+	case token.BEGIN:
+		return parser.Begin()
+	case token.COMMIT:
+		return parser.Commit()
+	case token.CREATE:
+		return parser.CreateTable()
+	default:
+		panic("Not a valid statement")
+	}
 }

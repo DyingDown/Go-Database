@@ -13,3 +13,7 @@ func (expr *SQLExpression) IsWhereExists() bool {
 	}
 	return true
 }
+
+func (sql SQLExpression) Type() string {
+	return "SQL Expression"
+}

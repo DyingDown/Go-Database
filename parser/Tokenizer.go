@@ -107,6 +107,8 @@ func (tokenizer *Tokenizer) getWords() token.Token {
 	str = strings.ToLower(str)
 	if str == "add" {
 		return token.Token{Types: token.ADD, Value: str}
+	} else if str == "abort" {
+		return token.Token{Types: token.ABORT, Value: str}
 	} else if str == "alter" {
 		return token.Token{Types: token.ALTER, Value: str}
 	} else if str == "all" {
@@ -121,12 +123,16 @@ func (tokenizer *Tokenizer) getWords() token.Token {
 		return token.Token{Types: token.ASC, Value: str}
 	} else if str == "avg" {
 		return token.Token{Types: token.AVG, Value: str}
+	} else if str == "begin" {
+		return token.Token{Types: token.BEGIN, Value: str}
 	} else if str == "by" {
 		return token.Token{Types: token.BY, Value: str}
 	} else if str == "check" {
 		return token.Token{Types: token.CHECK, Value: str}
 	} else if str == "column" {
 		return token.Token{Types: token.COLUMN, Value: str}
+	} else if str == "commit" {
+		return token.Token{Types: token.COMMIT, Value: str}
 	} else if str == "count" {
 		return token.Token{Types: token.COUNT, Value: str}
 	} else if str == "create" {

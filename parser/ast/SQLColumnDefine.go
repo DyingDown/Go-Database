@@ -29,3 +29,7 @@ func NewSQLColumnDefine(columnName string, columnType Types) *SQLColumnDefine {
 		Len:        500,
 	}
 }
+
+func (sql SQLColumnDefine) Type() string {
+	return "Column Define"
+}
