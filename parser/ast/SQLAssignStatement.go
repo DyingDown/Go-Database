@@ -5,6 +5,6 @@ type SQLAssignStatement struct {
 	Value      SQLValue
 }
 
-func (sql SQLAssignStatement) Type() string {
+func (sql *SQLAssignStatement) Type() string {
 	return "Assign"
 }

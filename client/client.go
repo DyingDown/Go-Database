@@ -28,35 +28,58 @@ func (c *Client) Start() {
 	}
 	defer conn.Close()
 
-	input := bufio.NewReader(os.Stdin)
-	encodder := gob.NewEncoder(conn)
-	decodder := gob.NewDecoder(conn)
+	f, err := os.OpenFile("test.sql", os.O_RDWR, 0666)
+	if err != nil {
+		panic(err)
+	}
+	input := bufio.NewReader(f)
+	// input := bufio.NewReader(os.Stdin)
+	enc := gob.NewEncoder(conn)
+	dec := gob.NewDecoder(conn)
 
 	xid := vm.NULL_Xid
-	for fmt.Print("go-db> "); ; {
+	for {
+		fmt.Print("go-db> ")
 		sql := ""
-		for line, err := input.ReadString('\n'); ((line != "" && line[len(line)-1] != '\n') || line == "") && err != nil; {
-			fmt.Print("    >>> ")
+		for {
+			line, err := input.ReadString('\n')
+			// fmt.Print(line)
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				logrus.Error(err)
+				return
+			}
+			if line == "exit;\n" {
+				return
+			}
 			sql += line
+			if line[len(line)-2] == ';' {
+				break
+			}
+			fmt.Print("    >>> ")
+
 		}
-		if err != io.EOF {
+
+		if err != nil && err != io.EOF {
 			logrus.Error(err)
 			return
 		}
-		if sql == "exit;" {
-			return
-		}
+		// fmt.Print(sql)
 		request := &transporter.Request{
 			Xid: xid,
 			SQL: sql,
 		}
-		err := encodder.Encode(request)
+
+		err := enc.Encode(request)
 		if err != nil {
 			logrus.Error(err)
 			return
 		}
+		logrus.Info("success encode")
 		response := &transporter.Response{}
-		err = decodder.Decode(response)
+		err = dec.Decode(response)
 		if err != nil {
 			logrus.Error(err)
 			return
@@ -64,10 +87,9 @@ func (c *Client) Start() {
 		xid = response.Xid
 		if response.Err != "" {
 			logrus.Error(response.Err)
-			return
 		}
 		if response.ResultList != nil {
-			response.ResultList.Print()
+			fmt.Print(response.ResultList.String())
 		}
 
 	}

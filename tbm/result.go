@@ -23,12 +23,14 @@ func (tbm *TableManager) NewResult(tableName string, rows []*ast.Row) *Result {
 	}
 }
 
-func (result *Result) Print() {
+func (result *Result) String() string {
+	var str string
 	for _, i := range result.ColumnName {
-		fmt.Println(i, '\t')
+		str += fmt.Sprintf("%v\t", i)
 	}
+	str += "\n"
 	for _, row := range result.Rows {
-		line := fmt.Sprintf("%v\n", row)
-		fmt.Print(line)
+		str += fmt.Sprintf("%v\n", row)
 	}
+	return str
 }

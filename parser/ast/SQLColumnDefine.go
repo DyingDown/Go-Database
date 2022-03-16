@@ -12,6 +12,18 @@ const (
 	CT_STRING
 )
 
+func (types Types) String() string {
+	switch types {
+	case CT_INT:
+		return "int"
+	case CT_FLOAT:
+		return "float"
+	case CT_STRING:
+		return "string"
+	}
+	return ""
+}
+
 var StringToType = map[string]Types{"int": CT_INT, "float": CT_FLOAT, "string": CT_STRING}
 
 type SQLColumnDefine struct {
@@ -30,6 +42,6 @@ func NewSQLColumnDefine(columnName string, columnType Types) *SQLColumnDefine {
 	}
 }
 
-func (sql SQLColumnDefine) Type() string {
+func (sql *SQLColumnDefine) Type() string {
 	return "Column Define"
 }

@@ -2,10 +2,10 @@ package ast
 
 type SQLUpdateStatement struct {
 	TableName string
-	Assigns   []SQLAssignStatement
+	Assigns   []*SQLAssignStatement
 	Expr      *SQLExpression
 }
 
-func (sql SQLUpdateStatement) Type() string {
+func (sql *SQLUpdateStatement) Type() string {
 	return "Update"
 }

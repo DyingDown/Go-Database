@@ -45,7 +45,7 @@ func OpenFile(path string) *Pager {
 		log.Fatalf("fail to open file %v: %v", filepath, err)
 	}
 	// add meta page to cache
-	pager.cache.AddData(0, metaPage)
+	pager.cache.AddData(uint32(0), metaPage)
 	return pager
 }
 
@@ -67,7 +67,7 @@ func CreateFile(path string) *Pager {
 	}
 	metaData := pagedata.NewMetaData()
 	metaPage := pager.CreatePage(metaData)
-	pager.cache.AddData(0, metaPage)
+	pager.cache.AddData(uint32(0), metaPage)
 	return pager
 }
 
@@ -79,7 +79,7 @@ func (pager *Pager) GetPage(pageNum uint32, pdata PageData) (*Page, error) {
 	if data != nil {
 		return data.(*Page), nil
 	} else { // if the page is not in cache
-		newPage := new(Page)
+		newPage := NewPage(pageNum, pdata)
 		err := newPage.Decode(pager.file, pdata)
 		if err != nil {
 			log.Errorf("fail to decode page: %v", err)
@@ -134,8 +134,13 @@ func (pager *Pager) SelectPage(dataSize int, tableName string) (page *Page, err 
 
 // @description: flush page to disk
 func (pager *Pager) WritePage(page *Page) {
-	bytes := page.Encode()
-	n, err := pager.file.WriteAt(bytes, int64(page.PageNo*util.PageSize))
+	bs := page.Encode()
+	// buf := bytes.NewBuffer(bs)
+	// p := new(Page)
+	// p.Decode(buf, pagedata.NewMetaData())
+	// logrus.Info(p.pageData)
+
+	n, err := pager.file.WriteAt(bs, int64(page.PageNo*util.PageSize))
 	if err != nil || n != util.PageSize {
 		panic("fail to write page to disk")
 	}

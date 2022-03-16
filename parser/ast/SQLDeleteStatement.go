@@ -5,6 +5,6 @@ type SQLDeleteStatement struct {
 	Expr      *SQLExpression
 }
 
-func (sql SQLDeleteStatement) Type() string {
+func (sql *SQLDeleteStatement) Type() string {
 	return "Delete Statement"
 }

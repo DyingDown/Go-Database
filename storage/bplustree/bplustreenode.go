@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"go-database/storage/index"
 	"io"
+
+	"github.com/sirupsen/logrus"
 )
 
 type BPlusTreeNode struct {
@@ -13,25 +15,25 @@ type BPlusTreeNode struct {
 	LeftAddr    uint32
 	RightAddr   uint32
 	isLeaf      bool
-	order       uint16
 	Num         uint16
 	Keys        []index.KeyType
 	Children    []index.ValueType
 	tree        *BPlusTree // b+ tree, not saved in file
 }
 
-func NewBPlusTreeNode(order uint16, leaf bool) *BPlusTreeNode {
+func NewBPlusTreeNode(tree *BPlusTree) *BPlusTreeNode {
 	return &BPlusTreeNode{
-		isLeaf:   leaf,
-		order:    order,
-		Keys:     make([]index.KeyType, order),
-		Children: make([]index.ValueType, order+1),
+		tree:     tree,
+		Keys:     make([]index.KeyType, tree.order),
+		Children: make([]index.ValueType, tree.order+1),
 	}
 }
 
 // @description: search target pos in none leaf node
 func (node *BPlusTreeNode) SearchNonLeaf(target index.KeyType) index.ValueType {
 	pos := node.Lower_Bound(target)
+	logrus.Info(pos)
+	logrus.Info(len(node.Children))
 	return node.Children[pos]
 }
 
@@ -44,15 +46,15 @@ func (node *BPlusTreeNode) insertInNode(key index.KeyType, value index.ValueType
 		return false
 	}
 	// insert key
-	copy(node.Keys[index+1:], node.Keys[index:node.order-1])
+	copy(node.Keys[index+1:], node.Keys[index:node.tree.order-1])
 	node.Keys[index] = key
 
 	// insert value
 	if node.isLeaf {
-		copy(node.Children[index+1:], node.Children[index:node.order])
+		copy(node.Children[index+1:], node.Children[index:node.tree.order])
 		node.Children[index] = value
 	} else {
-		copy(node.Children[index+2:], node.Children[index+1:node.order])
+		copy(node.Children[index+2:], node.Children[index+1:node.tree.order])
 		node.Children[index+1] = value
 	}
 	node.Num++

@@ -148,15 +148,15 @@ func (tbm *TableManager) CreateTable(xid uint64, stmt *ast.SQLCreateTableStateme
 
 // start a transaction
 func (tbm *TableManager) Begin() uint64 {
-	return tbm.tm.Begin()
+	return tbm.vm.BeginTransaction()
 }
 
 // commit a transaction
 func (tbm *TableManager) Commit(xid uint64) {
-	tbm.tm.Commit(xid)
+	tbm.vm.CommitTransaction(xid)
 }
 
 // rollback a transaction
 func (tbm *TableManager) Abort(xid uint64) {
-	tbm.tm.Abort(xid)
+	tbm.vm.AbortTransaction(xid)
 }

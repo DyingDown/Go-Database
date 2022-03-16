@@ -7,6 +7,7 @@ import (
 	"go-database/tbm"
 	"go-database/transporter"
 	"go-database/util"
+	"go-database/vm"
 	"net"
 
 	"go-database/parser/ast"
@@ -40,13 +41,15 @@ func (server *Server) Start() {
 			logrus.Errorf("listen error: %s", err)
 			return
 		}
+		logrus.Infof("server start at %v://%v", util.NetWork, util.Address)
 		defer func() {
+			logrus.Info("listener closed")
 			listener.Close()
 			server.TableManager.Close()
 		}()
-		fmt.Println("server start")
 		for {
 			conn, err := listener.Accept()
+			logrus.Info("connection success")
 			if err != nil {
 				logrus.Errorf("accept error: %s", err)
 				return
@@ -63,7 +66,7 @@ func (server *Server) handle(conn net.Conn) {
 	decoder := gob.NewDecoder(conn)
 	for {
 		request := &transporter.Request{}
-		err := decoder.Decode(&request)
+		err := decoder.Decode(request)
 		if err != nil {
 			logrus.Errorf("decode request error: %s", err)
 			return
@@ -121,7 +124,7 @@ func (server *Server) HandleRequest(request *transporter.Request) *transporter.R
 
 func (server *Server) TemporaryTransaction(xid uint64, f func(xid uint64) (*tbm.Result, error)) (*tbm.Result, error) {
 	var isTT bool = false
-	if xid == 0 {
+	if xid == vm.NULL_Xid {
 		isTT = true
 		xid = server.TableManager.Begin()
 	}

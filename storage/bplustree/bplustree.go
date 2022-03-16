@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"go-database/storage/index"
 	"go-database/storage/pager"
-	"go-database/storage/recovery"
 	"go-database/util"
 
 	log "github.com/sirupsen/logrus"
@@ -26,7 +25,7 @@ type BPlusTree struct {
 func NewBPlusTree(pager *pager.Pager, keySize uint8, valueSize uint8, tableId uint32, columnId uint32) *BPlusTree {
 	newTree := &BPlusTree{}
 	newTree.order = uint16(util.ActuralPageSize) / (uint16(keySize + valueSize))
-	rootNode := NewBPlusTreeNode(newTree.order, true)
+	rootNode := NewBPlusTreeNode(newTree)
 	rootPage := pager.CreatePage(rootNode)
 	rootNode.CurrentAddr = rootPage.PageNo
 	rootNode.parent = 0
@@ -35,6 +34,7 @@ func NewBPlusTree(pager *pager.Pager, keySize uint8, valueSize uint8, tableId ui
 	rootNode.Num = 0
 	rootNode.Keys = make([]index.KeyType, newTree.order)
 	rootNode.Children = make([]index.ValueType, newTree.order+1)
+	rootNode.isLeaf = true
 
 	newTree.Root = rootNode.CurrentAddr
 	newTree.FirstLeaf = rootNode.CurrentAddr
@@ -51,9 +51,7 @@ func NewBPlusTree(pager *pager.Pager, keySize uint8, valueSize uint8, tableId ui
 
 // Node is pageData, a part of Page
 func (bplustree *BPlusTree) getNode(pageNum uint32) (*BPlusTreeNode, error) {
-	node := &BPlusTreeNode{
-		tree: bplustree,
-	}
+	node := NewBPlusTreeNode(bplustree)
 	_, err := bplustree.pager.GetPage(pageNum, node)
 	return node, err
 }
@@ -66,9 +64,11 @@ func (bplustree *BPlusTree) searchLowerInTree(target index.KeyType) (*BPlusTreeN
 		log.Errorf("fail to load tree node: %v", err)
 		return nil, 0
 	}
-
 	// reach leaf node
 	for !node.isLeaf {
+		if node.Num == 0 {
+			break
+		}
 		nextAddr := node.SearchNonLeaf(target)
 		node, err = bplustree.getNode(util.BytesToUInt32(nextAddr))
 		if err != nil {
@@ -88,11 +88,11 @@ func (bplustree *BPlusTree) Search(target index.KeyType) <-chan index.ValueType 
 	ValueChan := make(chan index.ValueType, 100)
 	var err error
 	node, targetPos := bplustree.searchLowerInTree(target)
-
 	// verify targetPos
 	if node == nil || targetPos == node.Num || !bytes.Equal(node.Keys[targetPos], target) {
 		node = nil
 		close(ValueChan)
+		return ValueChan
 	}
 	nodePageNo := util.BytesToUInt32(node.Children[targetPos])
 	if nodePageNo == 0 {
@@ -142,14 +142,14 @@ func (bplustree *BPlusTree) Insert(key index.KeyType, value index.ValueType) err
 	node.insertInNode(key, value, index)
 
 	// get node page in order to get page's log
-	nodePage, err := bplustree.pager.GetPage(node.CurrentAddr, node)
-	if err != nil {
-		log.Fatal(err)
-	}
+	// nodePage, err := bplustree.pager.GetPage(node.CurrentAddr, node)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 	// record log
-	log := new(recovery.GeneralLog).ToNodeInsert()
-	log.SetValue(bplustree.TableId, bplustree.ColumnId, node.CurrentAddr, key, value)
-	nodePage.Logs = append(nodePage.Logs, log)
+	// log := new(recovery.GeneralLog).ToNodeInsert()
+	// log.SetValue(bplustree.TableId, bplustree.ColumnId, node.CurrentAddr, key, value)
+	// nodePage.Logs = append(nodePage.Logs, log)
 
 	if node.Num >= bplustree.order {
 		bplustree.splitLeaf(node)
@@ -163,7 +163,8 @@ func (tree *BPlusTree) splitLeaf(node *BPlusTreeNode) {
 	// if is root, create new root
 	var parentNode *BPlusTreeNode
 	if node.CurrentAddr == tree.Root {
-		parentNode = NewBPlusTreeNode(tree.order, false)
+		parentNode = NewBPlusTreeNode(tree)
+		parentNode.isLeaf = false
 		parentPage := tree.pager.CreatePage(parentNode)
 		parentNode.CurrentAddr = parentPage.PageNo
 		parentNode.Num = 0
@@ -179,7 +180,8 @@ func (tree *BPlusTree) splitLeaf(node *BPlusTreeNode) {
 
 	half := tree.order / 2
 	// new node
-	newNode := NewBPlusTreeNode(tree.order, true)
+	newNode := NewBPlusTreeNode(tree)
+	newNode.isLeaf = true
 	newNode.Num = tree.order - half
 	node.Num = half
 	newNodePage := tree.pager.CreatePage(newNode)
@@ -220,7 +222,8 @@ func (tree *BPlusTree) splitNoneLeaf(node *BPlusTreeNode) {
 	// if is root, create new root
 	var parentNode *BPlusTreeNode
 	if node.CurrentAddr == tree.Root {
-		parentNode = NewBPlusTreeNode(tree.order, false)
+		parentNode = NewBPlusTreeNode(tree)
+		parentNode.isLeaf = false
 		parentPage := tree.pager.CreatePage(parentNode)
 		parentNode.CurrentAddr = parentPage.PageNo
 		parentNode.Num = 0
@@ -236,7 +239,8 @@ func (tree *BPlusTree) splitNoneLeaf(node *BPlusTreeNode) {
 
 	half := tree.order / 2
 	// new node
-	newNode := NewBPlusTreeNode(tree.order, true)
+	newNode := NewBPlusTreeNode(tree)
+	newNode.isLeaf = true
 	newNode.Num = tree.order - half - 1
 	node.Num = half
 	newNodePage := tree.pager.CreatePage(newNode)

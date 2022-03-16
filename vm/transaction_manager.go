@@ -106,6 +106,7 @@ func (tm *TransactionManager) Abort(xid uint64) {
 
 func (tm *TransactionManager) UpdateTransaction(xid uint64, status TransactionStatus) {
 	_, err := tm.XidFile.WriteAt([]byte{byte(status)}, int64(xid)+8)
+
 	if err != nil {
 		logrus.Fatal("fail write file: %v", err)
 	}
@@ -140,6 +141,7 @@ func (tm *TransactionManager) GetTransactionStatus(xid uint64) TransactionStatus
 // @description: check commited
 func (tm *TransactionManager) CheckCommited(xid uint64) bool {
 	status := tm.GetTransactionStatus(xid)
+	// logrus.Infof("%v, status: %v", xid, status)
 	return status == TS_COMMIT
 }
 

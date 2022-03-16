@@ -17,6 +17,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -64,7 +65,7 @@ func (dm *DataManager) SelectData(st *ast.SQLSelectStatement) (<-chan *ast.Row, 
 		}
 	} else {
 		// if no conditions, return the whole table
-		dm.scanTable(rows, tableInfo, new(ast.SQLSingleExpression))
+		dm.scanTable(rows, tableInfo, nil)
 	}
 	return rows, nil
 }
@@ -134,16 +135,27 @@ func (dm *DataManager) notEqualSearch(rows chan<- *ast.Row, expr *ast.SQLSingleE
 // Start from the first page and ends with the last page
 // For each page, scan all rows to find satisfied rows
 func (dm *DataManager) scanTable(rows chan<- *ast.Row, tableInfo *pagedata.TableInfo, expr *ast.SQLSingleExpression) {
-	// find which rows to compare
-	whereFunc, err := dm.GetRowFilter(tableInfo, expr)
-	if err != nil {
-		close(rows)
-		return
+	var whereFunc func(row *ast.Row) bool
+	var err error
+	if expr == nil {
+		whereFunc = func(row *ast.Row) bool {
+			return true
+		}
+	} else {
+		// find which rows to compare
+		whereFunc, err = dm.GetRowFilter(tableInfo, expr)
+		if err != nil {
+			logrus.Error(err)
+			close(rows)
+			return
+		}
 	}
+
 	// scan all pages
 	for i := tableInfo.FirstPage; i != 0; {
 		page, err := dm.pager.GetPage(i, pagedata.NewRecordData())
-		if err == nil {
+		if err != nil {
+			logrus.Error(err)
 			close(rows)
 			return
 		}
@@ -180,11 +192,11 @@ func (dm *DataManager) GetRowFilter(tableInfo *pagedata.TableInfo, expr *ast.SQL
 			}
 			if expr.CompareOp == token.EQUAL {
 				return func(row *ast.Row) bool {
-					return row.Data()[leftIndex] == row.Data()[rightIndex]
+					return row.Data[leftIndex] == row.Data[rightIndex]
 				}, nil
 			} else if expr.CompareOp == token.NOT_EQUAL {
 				return func(row *ast.Row) bool {
-					return row.Data()[leftIndex] != row.Data()[rightIndex]
+					return row.Data[leftIndex] != row.Data[rightIndex]
 				}, nil
 			} else {
 				return nil, fmt.Errorf("compare operator: %v is not supported", expr.CompareOp)
@@ -201,11 +213,11 @@ func (dm *DataManager) GetRowFilter(tableInfo *pagedata.TableInfo, expr *ast.SQL
 		}
 		if expr.CompareOp == token.EQUAL {
 			return func(row *ast.Row) bool {
-				return row.Data()[i] == expr.LeftVal
+				return row.Data[i] == expr.LeftVal
 			}, nil
 		} else if expr.CompareOp == token.NOT_EQUAL {
 			return func(row *ast.Row) bool {
-				return row.Data()[i] != expr.LeftVal
+				return row.Data[i] != expr.LeftVal
 			}, nil
 		} else {
 			return nil, fmt.Errorf("compare operator: %v is not supported", expr.CompareOp)
@@ -221,11 +233,11 @@ func (dm *DataManager) GetRowFilter(tableInfo *pagedata.TableInfo, expr *ast.SQL
 		}
 		if expr.CompareOp == token.EQUAL {
 			return func(row *ast.Row) bool {
-				return row.Data()[i] == expr.RightVal
+				return row.Data[i] == expr.RightVal
 			}, nil
 		} else if expr.CompareOp == token.NOT_EQUAL {
 			return func(row *ast.Row) bool {
-				return row.Data()[i] != expr.RightVal
+				return row.Data[i] != expr.RightVal
 			}, nil
 		} else {
 			return nil, fmt.Errorf("compare operator: %v is not supported", expr.CompareOp)
@@ -348,9 +360,9 @@ func (dm *DataManager) InsertData(insertStmt *ast.SQLInsertStatement) (*ast.Row,
 			if columnDefine == nil {
 				return nil, fmt.Errorf("column: %s does not exist", CN)
 			}
-			if columns[index] != nil {
-				return nil, fmt.Errorf("column: %s is duplicated", CN)
-			}
+			// if columns[index] != nil {
+			// 	return nil, fmt.Errorf("column: %s is duplicated", CN)
+			// }
 			// check is column type match value type
 			if ast.ValueTypeVsColumnType(insertStmt.Values[i].GetType(), columnDefine.ColumnType) {
 				columns = append(columns, columnDefine)
@@ -368,11 +380,13 @@ func (dm *DataManager) InsertData(insertStmt *ast.SQLInsertStatement) (*ast.Row,
 	// TODO: row not created here
 	// create a new row
 	row := new(ast.Row)
+	row.Data = make([]ast.SQLValue, len(insertStmt.Values))
 	// write data to row
+	// logrus.Info(row)
 	row.SetRowData(columnIndexs, insertStmt.Values)
 	// add row to page
 	// find a suitable page(last page or a new page) to insert new row
-	recordPage, err := dm.pager.SelectPage(int(row.Size()), insertStmt.TableName)
+	recordPage, err := dm.pager.SelectPage(int(row.Size), insertStmt.TableName)
 	if err != nil {
 		return nil, fmt.Errorf("select page error: %s", err)
 	}
@@ -386,9 +400,9 @@ func (dm *DataManager) InsertData(insertStmt *ast.SQLInsertStatement) (*ast.Row,
 		if index != nil {
 			// if column is primary key
 			if columnIndexs[i] == 0 {
-				index.Insert(row.Data()[0].Raw(), util.Uint32ToBytes(recordPage.PageNo))
+				index.Insert(row.Data[0].Raw(), util.Uint32ToBytes(recordPage.PageNo))
 			} else {
-				index.Insert(row.Data()[columnIndexs[i]].Raw(), row.Data()[0].Raw())
+				index.Insert(row.Data[columnIndexs[i]].Raw(), row.Data[0].Raw())
 			}
 		}
 	}

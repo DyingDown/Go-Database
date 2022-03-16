@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"errors"
 	"go-database/parser/ast"
 	"go-database/storage/dm"
 	"sync"
@@ -44,31 +45,32 @@ func (vm *VersionManager) BeginTransaction() uint64 {
 }
 
 // @description: commit a transaction
-func (vm *VersionManager) CommitTransaction(xid uint64) {
+func (vm *VersionManager) CommitTransaction(xid uint64) error {
 	vm.lock.Lock()
 	// check if xid is valid
 	if _, ok := vm.activeTransactions[xid]; !ok {
-		panic("xid is invalid")
+		vm.lock.Unlock()
+		return errors.New("xid is invalid")
 	}
-	// update the max xid
-	vm.tm.MaxXid = xid
 	// delete the transaction
 	delete(vm.activeTransactions, xid)
 	vm.lock.Unlock()
 	vm.tm.Commit(xid)
+	return nil
 }
 
 // @description: abort a transaction
-func (vm *VersionManager) AbortTransaction(xid uint64) {
+func (vm *VersionManager) AbortTransaction(xid uint64) error {
 	vm.lock.Lock()
 	// check if xid is valid
 	if _, ok := vm.activeTransactions[xid]; !ok {
-		panic("xid is invalid")
+		return errors.New("xid is invalid")
 	}
 	// delete the transaction
 	delete(vm.activeTransactions, xid)
 	vm.lock.Unlock()
 	vm.tm.Abort(xid)
+	return nil
 }
 
 // @description: Select Rows from tables
@@ -106,7 +108,7 @@ func (vm *VersionManager) Insert(xid uint64, stmt *ast.SQLInsertStatement) (*ast
 	_, ok := vm.activeTransactions[xid]
 	vm.lock.Unlock()
 	if !ok {
-		panic("xid is invalid")
+		return nil, errors.New("xid is invalid")
 	}
 	// set start xid and end xid
 	xmin := ast.SQLInt(xid)
@@ -128,12 +130,12 @@ func (vm *VersionManager) Delete(xid uint64, stmt *ast.SQLDeleteStatement) ([]*a
 	_, ok := vm.activeTransactions[xid]
 	vm.lock.Unlock()
 	if !ok {
-		panic("xid is invalid")
+		return nil, errors.New("xid is invalid")
 	}
 	seletStmt := &ast.SQLSelectStatement{
 		Table:      stmt.TableName,
 		Expr:       stmt.Expr,
-		SelectList: []ast.SQLSelectListElement{{ColumnName: "*"}},
+		SelectList: []*ast.SQLSelectListElement{{ColumnName: "*"}},
 	}
 	rows, err := vm.Select(xid, seletStmt)
 	if err != nil {

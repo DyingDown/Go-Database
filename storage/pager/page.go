@@ -21,7 +21,6 @@ import (
 	"io"
 	"sync"
 
-	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -76,9 +75,7 @@ func (page *Page) Encode() []byte {
 	binary.Write(buf, binary.BigEndian, page.LSN)
 	// page data needs special encode for different data types
 	dataBytes := page.pageData.Encode()
-	logrus.Error(buf.Len())
 	buf.Write(dataBytes)
-	logrus.Error(buf.Len())
 	// fill the page with 0s if the page content is smaller than a page
 	zeroLen := util.PageSize - len(buf.Bytes())
 	buf.Write(make([]byte, zeroLen))

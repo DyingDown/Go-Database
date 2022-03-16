@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/gob"
 	"flag"
 	"fmt"
 	"go-database/client"
+	"go-database/parser/ast"
 	"go-database/server"
 	"go-database/util"
 	"os"
@@ -19,6 +21,11 @@ func init() {
 	log.SetLevel(log.InfoLevel)
 	log.SetReportCaller(true)
 	log.SetFormatter(&util.MyFormatter{})
+
+	gob.Register(new(ast.SQLInt))
+	gob.Register(new(ast.SQLFloat))
+	gob.Register(new(ast.SQLString))
+	gob.Register(new(ast.SQLColumn))
 }
 
 func main() {

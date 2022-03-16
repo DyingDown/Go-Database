@@ -4,6 +4,8 @@ import (
 	"go-database/parser/token"
 	"strings"
 	"unicode"
+
+	"github.com/sirupsen/logrus"
 )
 
 type Tokenizer struct {
@@ -65,8 +67,8 @@ func (tokenizer *Tokenizer) getNumber() token.Token {
 	currentChar := tokenizer.Sql_str[tokenizer.currentPosition]
 	for (currentChar == '.' || unicode.IsDigit(rune(currentChar))) && tokenizer.currentPosition < tokenizer.Sql_len {
 		if currentChar == '.' {
-			if dot == 1 {
-
+			if dot != 1 {
+				logrus.Fatal("float number format error, more than one '.' in number")
 			}
 			dot++
 		}
@@ -272,8 +274,9 @@ func (tokenizer *Tokenizer) getAllTokens() {
 
 func (tokenizer *Tokenizer) getNextToken() token.Token {
 	if tokenizer.CurrentTokenPos < len(tokenizer.Tokens) {
+		token := tokenizer.Tokens[tokenizer.CurrentTokenPos]
 		tokenizer.CurrentTokenPos++
-		return tokenizer.Tokens[tokenizer.CurrentTokenPos-1]
+		return token
 	} else {
 		return token.Token{Types: token.END, Value: ""}
 	}

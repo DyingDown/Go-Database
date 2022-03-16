@@ -5,6 +5,6 @@ type SQLCreateTableStatement struct {
 	Columns   []*SQLColumnDefine
 }
 
-func (sql SQLCreateTableStatement) Type() string {
+func (sql *SQLCreateTableStatement) Type() string {
 	return "Create Table"
 }

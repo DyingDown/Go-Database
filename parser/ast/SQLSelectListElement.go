@@ -6,6 +6,6 @@ type SQLSelectListElement struct {
 	NewColumnName string
 }
 
-func (sql SQLSelectListElement) Type() string {
+func (sql *SQLSelectListElement) Type() string {
 	return "Select"
 }

@@ -6,6 +6,6 @@ type SQLInsertStatement struct {
 	Values      []SQLValue
 }
 
-func (sql SQLInsertStatement) Type() string {
+func (sql *SQLInsertStatement) Type() string {
 	return "Insert"
 }

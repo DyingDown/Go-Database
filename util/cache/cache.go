@@ -20,7 +20,8 @@ func CreateCache() *Cache {
 }
 
 func (cache *Cache) GetData(key interface{}) interface{} {
-	if value, Exist := cache.Pages[key]; Exist { // if find
+	// logrus.Infof("%t", key)
+	if value, ok := cache.Pages[key]; ok { // if find
 		return value
 	}
 	return nil
