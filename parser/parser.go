@@ -298,7 +298,7 @@ func (parser *Parser) getLogicOp() token.TokenType {
 		return tk.Types
 	} else {
 		parser.Lex.traceBack()
-		panic("Not a valid Logic operator")
+		return token.ILLEGAL
 	}
 }
 

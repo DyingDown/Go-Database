@@ -5,8 +5,7 @@ import (
 	"encoding/binary"
 	"go-database/storage/index"
 	"io"
-
-	"github.com/sirupsen/logrus"
+	"sort"
 )
 
 type BPlusTreeNode struct {
@@ -32,8 +31,6 @@ func NewBPlusTreeNode(tree *BPlusTree) *BPlusTreeNode {
 // @description: search target pos in none leaf node
 func (node *BPlusTreeNode) SearchNonLeaf(target index.KeyType) index.ValueType {
 	pos := node.Lower_Bound(target)
-	logrus.Info(pos)
-	logrus.Info(len(node.Children))
 	return node.Children[pos]
 }
 
@@ -64,6 +61,9 @@ func (node *BPlusTreeNode) insertInNode(key index.KeyType, value index.ValueType
 // @description: search keys in node
 // binary search
 func (node *BPlusTreeNode) Lower_Bound(target index.KeyType) uint16 {
+	return uint16(sort.Search(int(node.Num), func(i int) bool {
+		return bytes.Compare(node.Keys[i], target) >= 0
+	}))
 	left, right := uint16(0), node.Num
 	for left < right {
 		mid := (left + right) / 2

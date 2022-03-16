@@ -2,7 +2,6 @@ package bplustree
 
 import (
 	"bytes"
-	"fmt"
 	"go-database/storage/index"
 	"go-database/storage/pager"
 	"go-database/util"
@@ -52,8 +51,8 @@ func NewBPlusTree(pager *pager.Pager, keySize uint8, valueSize uint8, tableId ui
 // Node is pageData, a part of Page
 func (bplustree *BPlusTree) getNode(pageNum uint32) (*BPlusTreeNode, error) {
 	node := NewBPlusTreeNode(bplustree)
-	_, err := bplustree.pager.GetPage(pageNum, node)
-	return node, err
+	page, err := bplustree.pager.GetPage(pageNum, node)
+	return page.GetPageData().(*BPlusTreeNode), err
 }
 
 // @description: search the first data in tree leaf that match the target
@@ -99,7 +98,6 @@ func (bplustree *BPlusTree) Search(target index.KeyType) <-chan index.ValueType 
 		close(ValueChan)
 		return ValueChan
 	}
-
 	// put data into ValueChan
 	go func() {
 		defer close(ValueChan)
@@ -128,15 +126,15 @@ func (bplustree *BPlusTree) Search(target index.KeyType) <-chan index.ValueType 
 
 // @description: insert data into tree
 func (bplustree *BPlusTree) Insert(key index.KeyType, value index.ValueType) error {
-	valueChan := bplustree.Search(key)
-	// check if the data already existed in the search result
-	for v := range valueChan {
-		// if existed
-		if bytes.Equal(value, v) {
-			fmt.Println("value Already exisits")
-			return nil
-		}
-	}
+	// valueChan := bplustree.Search(key)
+	// // check if the data already existed in the search result
+	// for v := range valueChan {
+	// 	// if existed
+	// 	if bytes.Equal(value, v) {
+	// 		logrus.Error("value Already exisits")
+	// 		return nil
+	// 	}
+	// }
 	// search again to find insert position
 	node, index := bplustree.searchLowerInTree(key)
 	node.insertInNode(key, value, index)

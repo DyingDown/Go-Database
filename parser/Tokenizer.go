@@ -2,6 +2,7 @@ package parser
 
 import (
 	"go-database/parser/token"
+	"go-database/util"
 	"strings"
 	"unicode"
 
@@ -210,7 +211,7 @@ func (tokenizer *Tokenizer) getWords() token.Token {
 
 func (tokenizer *Tokenizer) getPunct() token.Token {
 	var str string
-	for unicode.IsPunct(rune(tokenizer.Sql_str[tokenizer.currentPosition])) && tokenizer.currentPosition < tokenizer.Sql_len {
+	for util.IsPunct(tokenizer.Sql_str[tokenizer.currentPosition]) && tokenizer.currentPosition < tokenizer.Sql_len {
 		str += string(tokenizer.Sql_str[tokenizer.currentPosition])
 		tokenizer.currentPosition++
 		if str == "+" || str == "-" || str == "*" ||
@@ -266,6 +267,10 @@ func (tokenizer *Tokenizer) isSpace(ch byte) bool {
 func (tokenizer *Tokenizer) getAllTokens() {
 	for {
 		tokenizer.Tokens = append(tokenizer.Tokens, tokenizer.scanNextToken())
+		if tokenizer.Tokens[len(tokenizer.Tokens)-1].Types == token.ILLEGAL {
+			logrus.Error("illegal token: ", tokenizer.Tokens[len(tokenizer.Tokens)-1].Value)
+			// break
+		}
 		if tokenizer.Tokens[len(tokenizer.Tokens)-1].Types == token.END {
 			break
 		}

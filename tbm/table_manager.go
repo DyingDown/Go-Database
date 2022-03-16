@@ -110,7 +110,7 @@ func (tbm *TableManager) Update(xid uint64, stmt *ast.SQLUpdateStatement) (*Resu
 	resultRows := make([]*ast.Row, 0)
 	// update rows
 	for _, row := range rows {
-		row.SetRowData(ids, newValues)
+		row.UpdateRow(ids, newValues)
 		copyRow := row.DeepCopy()
 		// insert the updated row
 		insertStmt := &ast.SQLInsertStatement{

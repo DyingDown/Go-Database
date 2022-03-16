@@ -70,6 +70,7 @@ func (dm *DataManager) SelectData(st *ast.SQLSelectStatement) (<-chan *ast.Row, 
 	return rows, nil
 }
 
+// @description: equal search
 func (dm *DataManager) simpleSearch(rows chan<- *ast.Row, expr *ast.SQLSingleExpression, tableInfo *pagedata.TableInfo) {
 	if expr.LeftVal.GetType() == ast.ST_COLUMN {
 		// get column name
@@ -114,7 +115,7 @@ func (dm *DataManager) simpleSearch(rows chan<- *ast.Row, expr *ast.SQLSingleExp
 			return
 		}
 	} else {
-		if expr.LeftVal == expr.RightVal {
+		if ast.CompareValue(expr.LeftVal, expr.RightVal) {
 			// if the condition satisfies every row
 			dm.scanTable(rows, tableInfo, expr)
 		} else {
@@ -213,11 +214,11 @@ func (dm *DataManager) GetRowFilter(tableInfo *pagedata.TableInfo, expr *ast.SQL
 		}
 		if expr.CompareOp == token.EQUAL {
 			return func(row *ast.Row) bool {
-				return row.Data[i] == expr.LeftVal
+				return ast.CompareValue(row.Data[i], expr.LeftVal)
 			}, nil
 		} else if expr.CompareOp == token.NOT_EQUAL {
 			return func(row *ast.Row) bool {
-				return row.Data[i] != expr.LeftVal
+				return ast.CompareValue(row.Data[i], expr.LeftVal)
 			}, nil
 		} else {
 			return nil, fmt.Errorf("compare operator: %v is not supported", expr.CompareOp)
@@ -233,11 +234,11 @@ func (dm *DataManager) GetRowFilter(tableInfo *pagedata.TableInfo, expr *ast.SQL
 		}
 		if expr.CompareOp == token.EQUAL {
 			return func(row *ast.Row) bool {
-				return row.Data[i] == expr.RightVal
+				return ast.CompareValue(row.Data[i], expr.RightVal)
 			}, nil
 		} else if expr.CompareOp == token.NOT_EQUAL {
 			return func(row *ast.Row) bool {
-				return row.Data[i] != expr.RightVal
+				return !ast.CompareValue(row.Data[i], expr.RightVal)
 			}, nil
 		} else {
 			return nil, fmt.Errorf("compare operator: %v is not supported", expr.CompareOp)
@@ -245,11 +246,11 @@ func (dm *DataManager) GetRowFilter(tableInfo *pagedata.TableInfo, expr *ast.SQL
 	} else {
 		if expr.CompareOp == token.EQUAL {
 			return func(row *ast.Row) bool {
-				return expr.LeftVal == expr.RightVal
+				return ast.CompareValue(expr.LeftVal, expr.RightVal)
 			}, nil
 		} else if expr.CompareOp == token.NOT_EQUAL {
 			return func(row *ast.Row) bool {
-				return expr.LeftVal != expr.RightVal
+				return !ast.CompareValue(expr.LeftVal, expr.RightVal)
 			}, nil
 		} else {
 			return nil, fmt.Errorf("compare operator: %v is not supported", expr.CompareOp)
@@ -260,7 +261,7 @@ func (dm *DataManager) GetRowFilter(tableInfo *pagedata.TableInfo, expr *ast.SQL
 // @description: primary key equal search
 func (dm *DataManager) pkEqSearch(rows chan<- *ast.Row, index index.Index, expr *ast.SQLSingleExpression) {
 	// search page Num
-	target := util.Uint32ToBytes(uint32(*expr.RightVal.(*ast.SQLInt)))
+	target := util.Int64ToBytes(int64(*expr.RightVal.(*ast.SQLInt)))
 	// pageNums is a channel([]byte) to store page numbers
 	pageNums := index.Search(target)
 	// set wait group
@@ -282,7 +283,7 @@ func (dm *DataManager) pkEqSearch(rows chan<- *ast.Row, index index.Index, expr 
 				// get row data
 				for i := range pageData.Rows() {
 					row := pageData.Rows()[i]
-					if row.GetPrimaryKey() == expr.RightVal {
+					if ast.CompareValue(row.GetPrimaryKey(), expr.RightVal) {
 						rows <- row
 					}
 				}
@@ -299,7 +300,7 @@ func (dm *DataManager) pkEqSearch(rows chan<- *ast.Row, index index.Index, expr 
 // @description: search in non primary index
 func (dm *DataManager) nPkEqSearch(rows chan<- *ast.Row, npIndex index.Index, pIndex index.Index, expr *ast.SQLSingleExpression) {
 	// search page Num
-	target := util.Uint32ToBytes(uint32(*expr.RightVal.(*ast.SQLInt)))
+	target := util.Int64ToBytes(int64(*expr.RightVal.(*ast.SQLInt)))
 	// pkNums is a channel([]byte) to store page numbers
 	pkNums := npIndex.Search(target)
 	// set wait group
@@ -324,7 +325,7 @@ func (dm *DataManager) nPkEqSearch(rows chan<- *ast.Row, npIndex index.Index, pI
 					// get row data
 					for i := range pageData.Rows() {
 						row := pageData.Rows()[i]
-						if row.GetPrimaryKey() == expr.RightVal {
+						if ast.CompareValue(row.GetPrimaryKey(), expr.RightVal) {
 							rows <- row
 						}
 					}

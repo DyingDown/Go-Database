@@ -102,6 +102,7 @@ func (pager *Pager) CreatePage(data PageData) *Page {
 	newPageNo := uint32(fileSize / util.PageSize)
 	page := NewPage(newPageNo, data)
 	pager.WritePage(page)
+	pager.cache.AddData(newPageNo, page)
 	return page
 }
 

@@ -1,6 +1,7 @@
 package ast
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"go-database/util"
@@ -188,4 +189,11 @@ func ValueTypeVsColumnType(valueType SQLType, columnType Types) bool {
 		return valueType == ST_STRING
 	}
 	return false
+}
+
+func CompareValue(left, right SQLValue) bool {
+	if left.GetType() != right.GetType() {
+		return false
+	}
+	return bytes.Equal(left.Raw(), right.Raw())
 }

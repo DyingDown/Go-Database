@@ -8,6 +8,7 @@ import (
 	"go-database/transporter"
 	"go-database/util"
 	"go-database/vm"
+	"io"
 	"net"
 
 	"go-database/parser/ast"
@@ -49,7 +50,7 @@ func (server *Server) Start() {
 		}()
 		for {
 			conn, err := listener.Accept()
-			logrus.Info("connection success")
+			logrus.Infof("connection success from %v", conn.RemoteAddr())
 			if err != nil {
 				logrus.Errorf("accept error: %s", err)
 				return
@@ -68,7 +69,9 @@ func (server *Server) handle(conn net.Conn) {
 		request := &transporter.Request{}
 		err := decoder.Decode(request)
 		if err != nil {
-			logrus.Errorf("decode request error: %s", err)
+			if err != io.EOF {
+				logrus.Errorf("decode request error: %s", err)
+			}
 			return
 		}
 		response := server.HandleRequest(request)

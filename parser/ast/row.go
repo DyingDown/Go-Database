@@ -32,6 +32,13 @@ func (row *Row) SetRowData(indexs []int, values []SQLValue) {
 	// }
 	row.Size = uint64(len(row.Encode()))
 }
+
+func (row *Row) UpdateRow(indexs []int, values []SQLValue) {
+	for i, j := range indexs {
+		row.Data[j] = values[i]
+	}
+	row.Size = uint64(len(row.Encode()))
+}
 func (row *Row) SetMaxXid(xid uint64) {
 	x := SQLInt(xid)
 	row.Data[len(row.Data)-1] = &x
