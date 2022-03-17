@@ -391,7 +391,7 @@ func (dm *DataManager) InsertData(insertStmt *ast.SQLInsertStatement) (*ast.Row,
 	if err != nil {
 		return nil, fmt.Errorf("select page error: %s", err)
 	}
-	row.SetPos(uint64(util.PageSize*recordPage.PageNo + uint32(recordPage.Size())))
+	row.SetPos(int64(util.PageSize*recordPage.PageNo + uint32(recordPage.Size())))
 	recordPageData := recordPage.GetPageData().(*pagedata.RecordData)
 	recordPageData.AppendData(row)
 

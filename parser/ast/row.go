@@ -8,7 +8,7 @@ import (
 )
 
 type Row struct {
-	Pos  uint64
+	Pos  int64
 	Size uint64
 	Data []SQLValue
 }
@@ -70,11 +70,11 @@ func (row *Row) Decode(r io.Reader) {
 		row.Size += size
 	}
 }
-func (row *Row) SetPos(pos uint64) {
+func (row *Row) SetPos(pos int64) {
 	row.Pos = pos
 }
 
-func (row *Row) GetPos() uint64 {
+func (row *Row) GetPos() int64 {
 	return row.Pos
 }
 

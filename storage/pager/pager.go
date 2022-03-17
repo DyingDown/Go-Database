@@ -40,6 +40,11 @@ func OpenFile(path string) *Pager {
 		cache: c,
 		file:  f,
 	}
+	c.AddExpire(
+		func(key, value interface{}) {
+			pager.WritePage(value.(*Page))
+		},
+	)
 	metaPage, err := pager.GetPage(0, pagedata.NewMetaData())
 	if err != nil {
 		log.Fatalf("fail to open file %v: %v", filepath, err)

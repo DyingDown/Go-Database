@@ -11,6 +11,7 @@ type VersionManager struct {
 	dm                 *dm.DataManager
 	tm                 *TransactionManager
 	activeTransactions map[uint64]*Transaction
+	rowlock            *RowLock
 	lock               sync.RWMutex
 }
 
@@ -20,6 +21,7 @@ func CreateVM(dm *dm.DataManager, tm *TransactionManager) *VersionManager {
 		dm:                 dm,
 		tm:                 tm,
 		activeTransactions: make(map[uint64]*Transaction),
+		rowlock:            NewRowLock(),
 	}
 }
 
@@ -29,6 +31,7 @@ func OpenVM(dm *dm.DataManager, tm *TransactionManager) *VersionManager {
 		dm:                 dm,
 		tm:                 tm,
 		activeTransactions: make(map[uint64]*Transaction),
+		rowlock:            NewRowLock(),
 	}
 }
 
@@ -144,6 +147,14 @@ func (vm *VersionManager) Delete(xid uint64, stmt *ast.SQLDeleteStatement) ([]*a
 	rowSlice := make([]*ast.Row, 0)
 	// set end xid and turns channel to slice
 	for _, row := range rows {
+		ok, ch := vm.rowlock.Add(xid, row.Pos)
+		if !ok {
+			vm.AbortTransaction(xid)
+			return nil, errors.New("dead lock error")
+		}
+		if ch != nil {
+			<-ch
+		}
 		row.SetMaxXid(xid)
 		vm.dm.GetFile().WriteAt(row.Encode(), int64(row.GetPos()))
 		rowSlice = append(rowSlice, row)
