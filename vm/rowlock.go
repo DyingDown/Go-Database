@@ -118,7 +118,7 @@ func (rowlock *RowLock) Remove(xid uint64) {
 	rowlock.lock.Lock()
 	defer rowlock.lock.Unlock()
 
-	for row, _ := range rowlock.xidToRow[xid] {
+	for row := range rowlock.xidToRow[xid] {
 		// 从被该行阻塞的事务中选取一个恢复
 		rowlock.selectTransaction(row)
 	}
