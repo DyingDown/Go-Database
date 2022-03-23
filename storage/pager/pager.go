@@ -16,6 +16,7 @@ import (
 	"go-database/storage/pager/pagedata"
 	"go-database/util"
 	"go-database/util/cache"
+	"hash/crc32"
 	"math"
 	"os"
 
@@ -24,14 +25,20 @@ import (
 )
 
 type Pager struct {
-	cache *cache.Cache
+	cache cache.Cache
 	file  *os.File
+}
+
+type PageNumber uint32
+
+func (p PageNumber) Hash() uint32 {
+	return crc32.ChecksumIEEE(util.Uint32ToBytes(uint32(p)))
 }
 
 // sql file already existed
 func OpenFile(path string) *Pager {
 	filepath := path + util.DBName + ".db"
-	c := cache.CreateCache()
+	c := cache.CreateCache(util.CacheSize)
 	f, err := os.OpenFile(filepath, os.O_RDWR, 0666)
 	if err != nil {
 		panic("fail open file " + filepath)
@@ -41,7 +48,7 @@ func OpenFile(path string) *Pager {
 		file:  f,
 	}
 	c.AddExpire(
-		func(key, value interface{}) {
+		func(key util.KEY, value interface{}) {
 			pager.WritePage(value.(*Page))
 		},
 	)
@@ -50,7 +57,7 @@ func OpenFile(path string) *Pager {
 		log.Fatalf("fail to open file %v: %v", filepath, err)
 	}
 	// add meta page to cache
-	pager.cache.AddData(uint32(0), metaPage)
+	pager.cache.AddData(PageNumber(0), metaPage)
 	return pager
 }
 
@@ -60,8 +67,9 @@ func CreateFile(path string) *Pager {
 	if _, err := os.Stat(filepath); err == nil {
 		logrus.Error("file already existed")
 		OpenFile(path)
+
 	}
-	c := cache.CreateCache()
+	c := cache.CreateCache(util.CacheSize)
 	f, err := os.OpenFile(filepath, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		panic("fail create file " + filepath)
@@ -72,7 +80,8 @@ func CreateFile(path string) *Pager {
 	}
 	metaData := pagedata.NewMetaData()
 	metaPage := pager.CreatePage(metaData)
-	pager.cache.AddData(uint32(0), metaPage)
+	pager.cache.AddData(PageNumber(0), metaPage)
+
 	return pager
 }
 
@@ -80,10 +89,11 @@ func CreateFile(path string) *Pager {
 // @param: pdata   PageData  An empty struct, as a container to receive data
 // @description: load a page from cache or file
 func (pager *Pager) GetPage(pageNum uint32, pdata PageData) (*Page, error) {
-	data := pager.cache.GetData(pageNum)
+	data := pager.cache.GetData(PageNumber(pageNum))
 	if data != nil {
 		return data.(*Page), nil
 	} else { // if the page is not in cache
+		logrus.Info("not in cache")
 		newPage := NewPage(pageNum, pdata)
 		err := newPage.Decode(pager.file, pdata)
 		if err != nil {
@@ -91,7 +101,7 @@ func (pager *Pager) GetPage(pageNum uint32, pdata PageData) (*Page, error) {
 			return nil, err
 		}
 		// add the page to cache
-		pager.cache.AddData(pageNum, newPage)
+		pager.cache.AddData(PageNumber(pageNum), newPage)
 		return newPage, nil
 	}
 }
@@ -107,7 +117,7 @@ func (pager *Pager) CreatePage(data PageData) *Page {
 	newPageNo := uint32(fileSize / util.PageSize)
 	page := NewPage(newPageNo, data)
 	pager.WritePage(page)
-	pager.cache.AddData(newPageNo, page)
+	pager.cache.AddData(PageNumber(newPageNo), page)
 	return page
 }
 

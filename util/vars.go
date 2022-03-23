@@ -8,6 +8,12 @@ const (
 	DoubleWriteBufferSize = 200       //  max page number double write's memory buffer can store
 	NetWork               = "tcp"
 	Address               = "127.0.0.1:8080"
+	CacheSize             = 100
+	CacheType             = "WTinyLRU" // "WTinyLRU" "LRU"
 )
 
 var DBName = "test"
+
+type KEY interface {
+	Hash() uint32
+}

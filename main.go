@@ -30,7 +30,6 @@ func init() {
 
 func main() {
 	// sql := "Create table color(red int, green string, blue float);"
-
 	isServer := flag.Bool("server", false, "run as server")
 	isClient := flag.Bool("client", false, "run as client")
 	isCreate := flag.Bool("create", false, "create database")
