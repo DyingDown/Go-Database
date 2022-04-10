@@ -31,7 +31,7 @@
  *			throw candidate
  *      else: throw victim
  */
-package wtinylru
+package wtinylfu
 
 import (
 	"container/list"

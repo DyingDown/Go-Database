@@ -9,7 +9,7 @@ package cache
 import (
 	"go-database/util"
 	"go-database/util/cache/lru"
-	wtinylru "go-database/util/cache/w-tinyLRU"
+	wtinylfu "go-database/util/cache/w-tinyLFU"
 )
 
 type Cache interface {
@@ -24,7 +24,7 @@ func CreateCache(cacheSize int) (ch Cache) {
 	case "LRU":
 		return lru.NewLRU(cacheSize)
 	case "WTinyLRU":
-		return wtinylru.NewWTinyLRU(cacheSize)
+		return wtinylfu.NewWTinyLFU(cacheSize)
 	}
 	return ch
 }

@@ -1,4 +1,4 @@
-package wtinylru
+package wtinylfu
 
 import (
 	"go-database/util"
