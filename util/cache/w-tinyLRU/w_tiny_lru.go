@@ -1,5 +1,5 @@
 /*
- *	w-tiny-lru contains three module
+ *	w-tiny-lfu contains three module
  * 	window:
  *		first store the data in windows.
  *		it's a very small lru
@@ -49,7 +49,7 @@ type ListNode struct {
 	value interface{}
 }
 
-type WTinyLRU struct {
+type WTinyLFU struct {
 	// window lru size = totalsize * 2%
 	windowSize int
 	windowList *list.List
@@ -71,14 +71,14 @@ type WTinyLRU struct {
 
 // var _ cache.Cache = (*WTinyLRU)(nil)
 
-func NewWTinyLRU(cachesize int) *WTinyLRU {
+func NewWTinyLFU(cachesize int) *WTinyLFU {
 	if cachesize <= 100 {
 		cachesize = 100
 	}
 	wsize := cachesize * 2 / 100
 	psize := cachesize * 2 / 10
 	ptsize := cachesize - wsize - psize
-	return &WTinyLRU{
+	return &WTinyLFU{
 		windowSize:     wsize,
 		windowList:     list.New(),
 		windowMap:      make(map[util.KEY]*list.Element),
@@ -92,7 +92,7 @@ func NewWTinyLRU(cachesize int) *WTinyLRU {
 	}
 }
 
-func (w *WTinyLRU) AddInWindow(key util.KEY, value interface{}) {
+func (w *WTinyLFU) AddInWindow(key util.KEY, value interface{}) {
 	ele := w.windowList.PushFront(&ListNode{key, value})
 	w.windowMap[key] = ele
 	if w.windowList.Len() > w.windowSize {
@@ -103,7 +103,7 @@ func (w *WTinyLRU) AddInWindow(key util.KEY, value interface{}) {
 	}
 }
 
-func (w *WTinyLRU) AddInProtection(key util.KEY, value interface{}) {
+func (w *WTinyLFU) AddInProtection(key util.KEY, value interface{}) {
 	ele := w.protectionList.PushFront(&ListNode{key, value})
 	w.protectionMap[key] = ele
 	if w.protectionList.Len() > w.protectionSize {
@@ -114,7 +114,7 @@ func (w *WTinyLRU) AddInProtection(key util.KEY, value interface{}) {
 	}
 }
 
-func (w *WTinyLRU) AddInProbation(key util.KEY, value interface{}) {
+func (w *WTinyLFU) AddInProbation(key util.KEY, value interface{}) {
 	ele := w.probationList.PushFront(&ListNode{key, value})
 	w.probationMap[key] = ele
 	if w.probationList.Len() > w.protectionSize {
@@ -131,7 +131,7 @@ func (w *WTinyLRU) AddInProbation(key util.KEY, value interface{}) {
 	}
 }
 
-func (w *WTinyLRU) GetData(key util.KEY) interface{} {
+func (w *WTinyLFU) GetData(key util.KEY) interface{} {
 	// check if data is in window
 	data, ok := w.windowMap[key]
 	if ok {
@@ -155,7 +155,7 @@ func (w *WTinyLRU) GetData(key util.KEY) interface{} {
 	return nil
 }
 
-func (w *WTinyLRU) AddData(key util.KEY, data interface{}) {
+func (w *WTinyLFU) AddData(key util.KEY, data interface{}) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 	if data := w.GetData(key); data != nil {
@@ -171,12 +171,12 @@ func (w *WTinyLRU) AddData(key util.KEY, data interface{}) {
 	}
 }
 
-func (w *WTinyLRU) getFrequency(key util.KEY) uint8 {
+func (w *WTinyLFU) getFrequency(key util.KEY) uint8 {
 	return w.frequency.GetMin(key)
 }
 
 // @return: trow candiate(true) or not
-func (w *WTinyLRU) compare(victim *list.Element, candidate *list.Element) bool {
+func (w *WTinyLFU) compare(victim *list.Element, candidate *list.Element) bool {
 	victimFreq := w.getFrequency(victim.Value.(*ListNode).key)
 	candidateFreq := w.getFrequency(candidate.Value.(*ListNode).key)
 	if candidateFreq < victimFreq {
@@ -187,11 +187,11 @@ func (w *WTinyLRU) compare(victim *list.Element, candidate *list.Element) bool {
 	return rand.Intn(2) == 0
 }
 
-func (w *WTinyLRU) AddExpire(f func(key util.KEY, value interface{})) {
+func (w *WTinyLFU) AddExpire(f func(key util.KEY, value interface{})) {
 	w.expire = f
 }
 
-func (w *WTinyLRU) Close() {
+func (w *WTinyLFU) Close() {
 	if w.expire == nil {
 		return
 	}
